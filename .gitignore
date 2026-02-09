@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.env/
+
+# Large data / artifacts (optional)
+*.npy
+*.npz
+
+# OS
+.DS_Store
