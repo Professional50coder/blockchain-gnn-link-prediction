@@ -1138,64 +1138,437 @@ elif "🚨 Fraud Detection" in section:
 
     st.markdown("---")
 
-    # Wallet investigation
+    # ── Wallet Investigation ──────────────────────────────────────────────────
     st.markdown("### 🕵️ Investigate Specific Wallet")
-    inv_col1, inv_col2 = st.columns([3, 1])
+
+    inv_col1, inv_col2, inv_col3 = st.columns([3, 1, 1])
     with inv_col1:
         wallet_id_input = st.number_input(
-            "Enter Wallet ID",
+            "Enter Wallet ID (numeric)",
             min_value=0,
             max_value=int(embeddings.shape[0] - 1),
-            value=0,
+            value=int(st.session_state.get("_inv_wallet", 0)),
+            key="inv_wallet_id",
         )
     with inv_col2:
-        # Quick-fill with top suspicious wallet
-        if st.button("↑ Load Top Suspicious", use_container_width=True):
+        if st.button("🚨 Load Top Suspicious", use_container_width=True):
             top_id = int(fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"])
             st.session_state["_inv_wallet"] = top_id
+            st.rerun()
+    with inv_col3:
+        if st.button("🎲 Random Wallet", use_container_width=True):
+            st.session_state["_inv_wallet"] = int(np.random.randint(0, embeddings.shape[0]))
+            st.rerun()
 
-    if "_inv_wallet" in st.session_state:
-        wallet_id_input = st.session_state["_inv_wallet"]
+    investigate_btn = st.button("🔍 Investigate Wallet", type="primary", use_container_width=True)
 
-    if st.button("🔍 Investigate Wallet", use_container_width=True):
-        info = fraud_df[fraud_df["wallet_id"] == wallet_id_input]
-        col1, col2 = st.columns(2)
+    if investigate_btn:
+        wid = int(wallet_id_input)
 
-        with col1:
-            st.markdown("#### Wallet Details")
-            try:
-                addr = le.inverse_transform([wallet_id_input])[0]
-                st.markdown(
-                    f'<span class="wallet-address-full">📍 {addr}</span>',
-                    unsafe_allow_html=True,
-                )
-            except Exception:
-                st.write(f"Wallet ID: `{wallet_id_input}`")
+        # ── Resolve address ──────────────────────────────────────────────
+        try:
+            addr = le.inverse_transform([wid])[0]
+        except Exception:
+            addr = None
 
-            if len(info) > 0:
-                rs = float(info.iloc[0]["risk_score"])
-                rl = info.iloc[0]["risk_level"]
-                st.markdown('<div class="fraud-alert">', unsafe_allow_html=True)
-                st.warning(f"⚠️ **FLAGGED — {rl} Risk**")
-                col_a, col_b = st.columns(2)
-                col_a.metric("Risk Score", f"{rs:.1f} / 100")
-                col_b.metric("Raw IF Score", f"{info.iloc[0]['fraud_score']:.4f}")
-                st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="success-box">', unsafe_allow_html=True)
-                st.success("✅ No fraud flags detected")
-                st.markdown("</div>", unsafe_allow_html=True)
+        # ── Data lookups ─────────────────────────────────────────────────
+        info       = fraud_df[fraud_df["wallet_id"] == wid]
+        sent_txs   = edges[edges["from_id"] == wid]
+        recv_txs   = edges[edges["to_id"]   == wid]
+        all_txs    = pd.concat([sent_txs, recv_txs]).drop_duplicates()
 
-        with col2:
-            st.markdown("#### Transaction Activity")
-            sent_txs = edges[edges["from_id"] == wallet_id_input]
-            recv_txs = edges[edges["to_id"] == wallet_id_input]
-            st.metric("Transactions Sent", f"{len(sent_txs):,}")
-            st.metric("Transactions Received", f"{len(recv_txs):,}")
-            counterparties = len(
-                set(sent_txs["to_id"].unique()) | set(recv_txs["from_id"].unique())
+        sent_count = len(sent_txs)
+        recv_count = len(recv_txs)
+        total_txs  = sent_count + recv_count
+
+        unique_receivers  = sent_txs["to_id"].nunique()
+        unique_senders    = recv_txs["from_id"].nunique()
+        unique_counterparties = len(
+            set(sent_txs["to_id"].tolist()) | set(recv_txs["from_id"].tolist())
+        )
+
+        is_flagged = len(info) > 0
+        rs  = float(info.iloc[0]["risk_score"])   if is_flagged else 0.0
+        rl  = info.iloc[0]["risk_level"]           if is_flagged else "Clean"
+        raw = float(info.iloc[0]["fraud_score"])   if is_flagged else None
+
+        # Embedding-based stats
+        emb = embeddings[wid]
+        emb_norm  = float(np.linalg.norm(emb))
+        emb_mean  = float(np.mean(emb))
+        emb_std   = float(np.std(emb))
+
+        # Peer-comparison: how unusual is this wallet vs all flagged wallets?
+        if is_flagged:
+            rank_among_flagged = int(
+                (fraud_df["risk_score"] > rs).sum() + 1
             )
-            st.metric("Unique Counterparties", f"{counterparties:,}")
+            pct_rank = round((1 - (rank_among_flagged - 1) / max(len(fraud_df), 1)) * 100, 1)
+        else:
+            rank_among_flagged = None
+            pct_rank = None
+
+        # Counterparty fraud exposure
+        all_counterparty_ids = set(sent_txs["to_id"].tolist()) | set(recv_txs["from_id"].tolist())
+        flagged_counterparties = all_counterparty_ids & FRAUD_IDS
+        fraud_exposure_pct = (
+            round(len(flagged_counterparties) / max(len(all_counterparty_ids), 1) * 100, 1)
+            if all_counterparty_ids else 0.0
+        )
+
+        # Send/receive ratio (behaviour pattern)
+        tx_ratio = (sent_count / max(recv_count, 1))
+
+        # ── Header: address + status banner ─────────────────────────────
+        st.markdown("---")
+        if addr:
+            st.markdown(
+                f'<span class="wallet-address-full">📍 {addr}</span>',
+                unsafe_allow_html=True,
+            )
+
+        if is_flagged:
+            badge_color = {"Critical": "#dc2626", "High": "#ef4444",
+                           "Medium": "#d97706", "Low": "#16a34a"}.get(rl, "#6366f1")
+            st.markdown(
+                f"""
+                <div style="background:linear-gradient(135deg,{badge_color}22,{badge_color}11);
+                            border:1px solid {badge_color}55; border-radius:12px;
+                            padding:0.9rem 1.2rem; margin:0.8rem 0;">
+                    <span style="font-size:1.15rem; font-weight:700; color:{badge_color};">
+                        ⚠️ FLAGGED — {rl} Risk &nbsp;
+                        <span style="font-size:0.85rem; font-weight:400; color:#94a3b8;">
+                            Risk Score: {rs:.1f} / 100
+                            {"&nbsp;·&nbsp; Top " + str(rank_among_flagged) + " of " + str(len(fraud_df)) + " flagged wallets"
+                             if rank_among_flagged else ""}
+                        </span>
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+                <div style="background:linear-gradient(135deg,#16a34a22,#16a34a11);
+                            border:1px solid #16a34a44; border-radius:12px;
+                            padding:0.9rem 1.2rem; margin:0.8rem 0;">
+                    <span style="font-size:1.1rem; font-weight:700; color:#4ade80;">
+                        ✅ CLEAN — No fraud flags detected
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+        # ── Row 1: 5 top-level KPI metrics ──────────────────────────────
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Wallet ID",            f"#{wid:,}")
+        m2.metric("Txs Sent",             f"{sent_count:,}")
+        m3.metric("Txs Received",         f"{recv_count:,}")
+        m4.metric("Unique Counterparties",f"{unique_counterparties:,}")
+        m5.metric("Fraud Exposure",       f"{fraud_exposure_pct}%",
+                  delta=("⚠️ High" if fraud_exposure_pct > 30 else ("🟡 Moderate" if fraud_exposure_pct > 10 else "✅ Low")),
+                  delta_color="off")
+
+        st.markdown("")
+
+        # ── Row 2: three analysis tabs ───────────────────────────────────
+        tab_risk, tab_txn, tab_network, tab_embedding = st.tabs([
+            "🔴 Risk Profile", "📋 Transaction Details", "🌐 Network Context", "🧬 Embedding Analysis"
+        ])
+
+        # ── Tab: Risk Profile ────────────────────────────────────────────
+        with tab_risk:
+            rc1, rc2 = st.columns([1, 1])
+            with rc1:
+                st.markdown("#### Risk Breakdown")
+                if is_flagged:
+                    # Risk score gauge (HTML progress bar)
+                    gauge_color = {"Critical": "#dc2626", "High": "#ef4444",
+                                   "Medium": "#f59e0b", "Low": "#22c55e"}.get(rl, "#6366f1")
+                    st.markdown(
+                        f"""
+                        <div style="margin:0.5rem 0 1rem;">
+                            <div style="display:flex; justify-content:space-between;
+                                        font-size:0.8rem; color:#94a3b8; margin-bottom:4px;">
+                                <span>Risk Score</span><span>{rs:.1f} / 100</span>
+                            </div>
+                            <div style="background:rgba(255,255,255,0.06); border-radius:999px;
+                                        height:14px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);">
+                                <div style="width:{rs}%; height:100%;
+                                            background:linear-gradient(90deg,{gauge_color}99,{gauge_color});
+                                            border-radius:999px; transition:width 0.4s;">
+                                </div>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                    st.metric("Raw Isolation Forest Score", f"{raw:.6f}" if raw is not None else "N/A")
+                    st.metric("Percentile Among Flagged Wallets", f"{pct_rank}th percentile" if pct_rank else "N/A")
+                    st.metric("Rank Among Flagged", f"#{rank_among_flagged} of {len(fraud_df):,}")
+                else:
+                    st.success("This wallet has **not** been flagged by the Isolation Forest model.")
+                    st.info("The embedding signature of this wallet is consistent with normal transaction behaviour.")
+
+            with rc2:
+                st.markdown("#### Behavioural Signals")
+                signals = []
+                if tx_ratio > 5:
+                    signals.append(("🚩", "High send/receive ratio", f"{tx_ratio:.1f}x — predominantly outgoing"))
+                elif tx_ratio < 0.2:
+                    signals.append(("🚩", "High receive/send ratio", f"{1/max(tx_ratio,0.01):.1f}x — predominantly incoming"))
+                else:
+                    signals.append(("✅", "Balanced send/receive", f"Ratio: {tx_ratio:.2f}"))
+
+                if fraud_exposure_pct > 30:
+                    signals.append(("🚩", "High fraud-network exposure",
+                                    f"{len(flagged_counterparties)} of {len(all_counterparty_ids)} counterparties are flagged ({fraud_exposure_pct}%)"))
+                elif fraud_exposure_pct > 10:
+                    signals.append(("⚠️", "Moderate fraud-network exposure",
+                                    f"{fraud_exposure_pct}% of counterparties are flagged"))
+                else:
+                    signals.append(("✅", "Low fraud-network exposure",
+                                    f"Only {fraud_exposure_pct}% of counterparties are flagged"))
+
+                if unique_receivers > 50:
+                    signals.append(("🚩", "Wide receiver spread",
+                                    f"Sent to {unique_receivers:,} unique wallets — fan-out pattern"))
+                elif unique_receivers > 10:
+                    signals.append(("⚠️", "Moderate receiver spread", f"{unique_receivers} unique receivers"))
+                else:
+                    signals.append(("✅", "Narrow receiver spread", f"{unique_receivers} unique receivers"))
+
+                if total_txs == 0:
+                    signals.append(("ℹ️", "No transactions found", "Wallet exists in embedding but has no recorded transactions"))
+
+                for icon, label, detail in signals:
+                    st.markdown(
+                        f"""
+                        <div style="background:rgba(255,255,255,0.03); border-radius:8px;
+                                    padding:0.55rem 0.8rem; margin:5px 0;
+                                    border-left:3px solid {'#ef4444' if icon=='🚩' else '#f59e0b' if icon=='⚠️' else '#22c55e'};">
+                            <span style="font-size:0.88rem; font-weight:600;">{icon} {label}</span><br>
+                            <span style="font-size:0.78rem; color:#94a3b8;">{detail}</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+        # ── Tab: Transaction Details ─────────────────────────────────────
+        with tab_txn:
+            tc1, tc2 = st.columns(2)
+
+            with tc1:
+                st.markdown(f"#### 📤 Sent Transactions ({sent_count:,})")
+                if sent_count > 0:
+                    sent_display = sent_txs.copy()
+                    try:
+                        sent_display["to_address"] = le.inverse_transform(sent_display["to_id"].astype(int))
+                    except Exception:
+                        pass
+                    # Flag counterparties
+                    sent_display["counterparty_fraud"] = sent_display["to_id"].apply(
+                        lambda x: "🚨" if x in FRAUD_IDS else "✅"
+                    )
+                    st.dataframe(
+                        sent_display,
+                        use_container_width=True,
+                        height=300,
+                        column_config={
+                            "to_address": st.column_config.TextColumn("To Address", width="large"),
+                            "counterparty_fraud": st.column_config.TextColumn("Fraud Flag", width="small"),
+                        },
+                    )
+                else:
+                    st.info("No outgoing transactions found.")
+
+            with tc2:
+                st.markdown(f"#### 📥 Received Transactions ({recv_count:,})")
+                if recv_count > 0:
+                    recv_display = recv_txs.copy()
+                    try:
+                        recv_display["from_address"] = le.inverse_transform(recv_display["from_id"].astype(int))
+                    except Exception:
+                        pass
+                    recv_display["counterparty_fraud"] = recv_display["from_id"].apply(
+                        lambda x: "🚨" if x in FRAUD_IDS else "✅"
+                    )
+                    st.dataframe(
+                        recv_display,
+                        use_container_width=True,
+                        height=300,
+                        column_config={
+                            "from_address": st.column_config.TextColumn("From Address", width="large"),
+                            "counterparty_fraud": st.column_config.TextColumn("Fraud Flag", width="small"),
+                        },
+                    )
+                else:
+                    st.info("No incoming transactions found.")
+
+            # Export full transaction history
+            if total_txs > 0:
+                st.markdown("---")
+                export_txs = all_txs.copy()
+                try:
+                    export_txs["from_address"] = le.inverse_transform(export_txs["from_id"].astype(int))
+                    export_txs["to_address"]   = le.inverse_transform(export_txs["to_id"].astype(int))
+                except Exception:
+                    pass
+                st.download_button(
+                    f"⬇️ Export All {total_txs:,} Transactions (CSV)",
+                    export_txs.to_csv(index=False),
+                    file_name=f"wallet_{wid}_transactions.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+        # ── Tab: Network Context ─────────────────────────────────────────
+        with tab_network:
+            nc1, nc2 = st.columns([2, 1])
+            with nc1:
+                st.markdown("#### Flagged Counterparties")
+                if flagged_counterparties:
+                    fp_rows = []
+                    for fid in flagged_counterparties:
+                        fi = fraud_df[fraud_df["wallet_id"] == fid]
+                        try:
+                            f_addr = le.inverse_transform([int(fid)])[0]
+                        except Exception:
+                            f_addr = f"ID {fid}"
+                        direction = []
+                        if fid in set(sent_txs["to_id"]):
+                            direction.append("Sent To")
+                        if fid in set(recv_txs["from_id"]):
+                            direction.append("Received From")
+                        fp_rows.append({
+                            "Wallet Address": f_addr,
+                            "Wallet ID": int(fid),
+                            "Risk Level": fi.iloc[0]["risk_level"] if len(fi) > 0 else "Unknown",
+                            "Risk Score": round(float(fi.iloc[0]["risk_score"]), 1) if len(fi) > 0 else 0,
+                            "Relationship": " & ".join(direction),
+                        })
+                    fp_df = pd.DataFrame(fp_rows).sort_values("Risk Score", ascending=False)
+                    st.dataframe(
+                        fp_df,
+                        use_container_width=True,
+                        height=280,
+                        column_config={
+                            "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
+                            "Risk Score": st.column_config.NumberColumn("Risk Score", format="%.1f"),
+                        },
+                    )
+                else:
+                    st.success("✅ No flagged wallets found among this wallet's direct counterparties.")
+
+            with nc2:
+                st.markdown("#### Network Summary")
+                st.metric("Total Counterparties", f"{len(all_counterparty_ids):,}")
+                st.metric("Flagged Counterparties", f"{len(flagged_counterparties):,}",
+                          delta_color="inverse",
+                          delta=f"{fraud_exposure_pct}% exposure")
+                st.metric("Unique Receivers", f"{unique_receivers:,}")
+                st.metric("Unique Senders", f"{unique_senders:,}")
+                if len(flagged_counterparties) > 0:
+                    st.download_button(
+                        "⬇️ Export Flagged Counterparties",
+                        fp_df.to_csv(index=False) if flagged_counterparties else "",
+                        file_name=f"wallet_{wid}_flagged_counterparties.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+
+        # ── Tab: Embedding Analysis ──────────────────────────────────────
+        with tab_embedding:
+            ec1, ec2 = st.columns([1, 1])
+            with ec1:
+                st.markdown("#### GNN Embedding Statistics")
+                st.metric("Embedding Dimensions", f"{len(emb)}")
+                st.metric("L2 Norm",   f"{emb_norm:.4f}")
+                st.metric("Mean Value",f"{emb_mean:.4f}")
+                st.metric("Std Dev",   f"{emb_std:.4f}")
+
+                # Top-5 most similar wallets by cosine similarity
+                st.markdown("#### 🔗 Top 5 Similar Wallets (Cosine)")
+                emb_norm_val = emb_norm + 1e-9
+                # Sample 2000 random wallets for speed
+                sample_ids = np.random.choice(embeddings.shape[0], min(2000, embeddings.shape[0]), replace=False)
+                sample_embs = embeddings[sample_ids]
+                cosines = sample_embs @ emb / (
+                    np.linalg.norm(sample_embs, axis=1) * emb_norm_val + 1e-9
+                )
+                top5_local = np.argsort(cosines)[::-1][1:6]
+                top5_ids   = sample_ids[top5_local]
+                sim_rows   = []
+                for rank_i, (sid, local_i) in enumerate(zip(top5_ids, top5_local)):
+                    sim_info = fraud_df[fraud_df["wallet_id"] == sid]
+                    try:
+                        sim_addr = le.inverse_transform([int(sid)])[0]
+                    except Exception:
+                        sim_addr = f"ID {sid}"
+                    sim_rows.append({
+                        "Wallet Address":    sim_addr,
+                        "Wallet ID":         int(sid),
+                        "Cosine Similarity": round(float(cosines[local_i]), 4),
+                        "Risk Level":        sim_info.iloc[0]["risk_level"] if len(sim_info) > 0 else "Clean",
+                    })
+                st.dataframe(
+                    pd.DataFrame(sim_rows),
+                    use_container_width=True,
+                    column_config={
+                        "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
+                        "Cosine Similarity": st.column_config.NumberColumn("Cosine Sim", format="%.4f"),
+                    },
+                    hide_index=True,
+                )
+
+            with ec2:
+                st.markdown("#### Embedding Heatmap (first 64 dims)")
+                heatmap_vals = emb[:64].reshape(8, 8)
+                fig_emb = go.Figure(go.Heatmap(
+                    z=heatmap_vals,
+                    colorscale="RdBu",
+                    zmid=0,
+                    showscale=True,
+                    hoverongaps=False,
+                ))
+                fig_emb.update_layout(
+                    template=PLOTLY_TEMPLATE,
+                    height=320,
+                    margin=dict(t=10, b=10, l=10, r=10),
+                    xaxis=dict(showticklabels=False),
+                    yaxis=dict(showticklabels=False),
+                )
+                st.plotly_chart(fig_emb, use_container_width=True)
+
+        # ── Export full investigation report ─────────────────────────────
+        st.markdown("---")
+        report_data = {
+            "wallet_id":              [wid],
+            "wallet_address":         [addr or "N/A"],
+            "is_flagged":             [is_flagged],
+            "risk_level":             [rl],
+            "risk_score":             [rs],
+            "raw_if_score":           [raw],
+            "txs_sent":               [sent_count],
+            "txs_received":           [recv_count],
+            "total_txs":              [total_txs],
+            "unique_counterparties":  [unique_counterparties],
+            "flagged_counterparties": [len(flagged_counterparties)],
+            "fraud_exposure_pct":     [fraud_exposure_pct],
+            "send_recv_ratio":        [round(tx_ratio, 4)],
+            "emb_l2_norm":            [round(emb_norm, 6)],
+            "emb_mean":               [round(emb_mean, 6)],
+            "emb_std":                [round(emb_std, 6)],
+        }
+        st.download_button(
+            "⬇️ Export Full Investigation Report (CSV)",
+            pd.DataFrame(report_data).to_csv(index=False),
+            file_name=f"investigation_wallet_{wid}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
 
 
 # -----------------------------------------------
