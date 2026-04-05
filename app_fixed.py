@@ -31,96 +31,198 @@ st.set_page_config(
 )
 
 # -----------------------------------------------
-# Custom CSS
+# Custom CSS — Premium Dark Blockchain Theme
 # -----------------------------------------------
 st.markdown(
     """
 <style>
-    /* Main header */
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700;800&display=swap');
+
+    /* ── Global ── */
+    html, body, [class*="css"] {
+        font-family: 'Sora', sans-serif;
+    }
+
+    /* Hide default Streamlit branding */
+    #MainMenu, footer { visibility: hidden; }
+
+    /* ── Main header ── */
     .main-header {
-        font-size: 2.2rem;
-        font-weight: 700;
-        background: linear-gradient(90deg, #1a73e8, #0d47a1);
+        font-family: 'Sora', sans-serif;
+        font-size: 2.1rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 50%, #8b5cf6 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        background-clip: text;
         text-align: center;
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.5rem;
+        letter-spacing: -0.5px;
+    }
+    .sub-header {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.92rem;
+        font-weight: 300;
+        margin-bottom: 1.8rem;
+        letter-spacing: 0.3px;
     }
 
-    /* Metric cards */
+    /* ── Cards ── */
     .metric-card {
-        background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-        padding: 1rem 1.2rem;
-        border-radius: 0.75rem;
-        border-left: 4px solid #1a73e8;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(145deg, rgba(0,210,255,0.08), rgba(58,123,213,0.06));
+        padding: 1.1rem 1.3rem;
+        border-radius: 12px;
+        border: 1px solid rgba(0,210,255,0.18);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
+        transition: transform 0.2s, box-shadow 0.2s;
     }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,210,255,0.12); }
+
     .fraud-alert {
-        background: linear-gradient(135deg, #ffebee, #ffcdd2);
-        padding: 1rem 1.2rem;
-        border-radius: 0.75rem;
-        border-left: 4px solid #e53935;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(145deg, rgba(239,68,68,0.1), rgba(185,28,28,0.06));
+        padding: 1.1rem 1.3rem;
+        border-radius: 12px;
+        border: 1px solid rgba(239,68,68,0.25);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
     .success-box {
-        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
-        padding: 1rem 1.2rem;
-        border-radius: 0.75rem;
-        border-left: 4px solid #43a047;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(145deg, rgba(34,197,94,0.1), rgba(21,128,61,0.06));
+        padding: 1.1rem 1.3rem;
+        border-radius: 12px;
+        border: 1px solid rgba(34,197,94,0.25);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
     .warning-box {
-        background: linear-gradient(135deg, #fffde7, #fff9c4);
-        padding: 1rem 1.2rem;
-        border-radius: 0.75rem;
-        border-left: 4px solid #fb8c00;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(145deg, rgba(251,146,60,0.1), rgba(194,65,12,0.06));
+        padding: 1.1rem 1.3rem;
+        border-radius: 12px;
+        border: 1px solid rgba(251,146,60,0.25);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
     .info-box {
-        background: linear-gradient(135deg, #e8eaf6, #c5cae9);
-        padding: 1rem 1.2rem;
-        border-radius: 0.75rem;
-        border-left: 4px solid #3949ab;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        background: linear-gradient(145deg, rgba(99,102,241,0.1), rgba(67,56,202,0.06));
+        padding: 1.1rem 1.3rem;
+        border-radius: 12px;
+        border: 1px solid rgba(99,102,241,0.25);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
 
-    /* Risk badge pills */
-    .risk-critical { background:#b71c1c; color:#fff; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
-    .risk-high     { background:#e53935; color:#fff; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
-    .risk-medium   { background:#fb8c00; color:#fff; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
-    .risk-low      { background:#43a047; color:#fff; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; }
+    /* ── Risk badges ── */
+    .risk-critical {
+        background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+        color: #fecaca; padding: 4px 13px; border-radius: 20px;
+        font-size: 0.76rem; font-weight: 700; letter-spacing: 0.5px;
+        border: 1px solid rgba(239,68,68,0.4);
+    }
+    .risk-high {
+        background: linear-gradient(135deg, #991b1b, #dc2626);
+        color: #fee2e2; padding: 4px 13px; border-radius: 20px;
+        font-size: 0.76rem; font-weight: 700; letter-spacing: 0.5px;
+        border: 1px solid rgba(239,68,68,0.3);
+    }
+    .risk-medium {
+        background: linear-gradient(135deg, #92400e, #d97706);
+        color: #fef3c7; padding: 4px 13px; border-radius: 20px;
+        font-size: 0.76rem; font-weight: 700; letter-spacing: 0.5px;
+        border: 1px solid rgba(251,191,36,0.3);
+    }
+    .risk-low {
+        background: linear-gradient(135deg, #14532d, #16a34a);
+        color: #dcfce7; padding: 4px 13px; border-radius: 20px;
+        font-size: 0.76rem; font-weight: 700; letter-spacing: 0.5px;
+        border: 1px solid rgba(34,197,94,0.3);
+    }
 
-    /* Sidebar styling */
-    .sidebar-stat {
-        background: #f8f9ff;
-        border-radius: 0.5rem;
-        padding: 0.5rem 0.8rem;
+    /* ── Wallet address display ── */
+    .wallet-address-full {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.82rem;
+        background: rgba(0,210,255,0.07);
+        border: 1px solid rgba(0,210,255,0.2);
+        border-radius: 8px;
+        padding: 0.55rem 0.9rem;
+        color: #7dd3fc;
+        word-break: break-all;
+        letter-spacing: 0.3px;
+        display: block;
         margin: 4px 0;
-        font-size: 0.9rem;
     }
 
-    /* Input validation feedback */
-    .valid-address   { color: #2e7d32; font-size: 0.8rem; }
-    .invalid-address { color: #c62828; font-size: 0.8rem; }
+    /* ── Validation feedback ── */
+    .valid-address   { color: #4ade80; font-size: 0.82rem; font-weight: 600; }
+    .invalid-address { color: #f87171; font-size: 0.82rem; font-weight: 600; }
 
-    /* History pill */
+    /* ── History pills ── */
     .history-pill {
         display: inline-block;
-        background: #e3f2fd;
-        color: #1565c0;
+        background: rgba(0,210,255,0.1);
+        color: #7dd3fc;
         border-radius: 20px;
-        padding: 2px 10px;
-        font-size: 0.75rem;
+        padding: 3px 12px;
+        font-size: 0.73rem;
+        font-family: 'JetBrains Mono', monospace;
         margin: 2px;
+        border: 1px solid rgba(0,210,255,0.2);
         cursor: pointer;
     }
 
-    /* Footer */
+    /* ── Section divider ── */
+    .section-divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(0,210,255,0.3), transparent);
+        margin: 1.5rem 0;
+        border: none;
+    }
+
+    /* ── Stat badge for sidebar ── */
+    .sidebar-stat {
+        background: rgba(255,255,255,0.04);
+        border-radius: 8px;
+        padding: 0.5rem 0.8rem;
+        margin: 4px 0;
+        font-size: 0.88rem;
+        border: 1px solid rgba(255,255,255,0.07);
+    }
+
+    /* ── Footer ── */
     .footer-text {
         text-align: center;
-        color: #888;
-        font-size: 0.82rem;
-        padding: 1.5rem 0 0.5rem;
+        color: #475569;
+        font-size: 0.80rem;
+        padding: 2rem 0 1rem;
+        letter-spacing: 0.3px;
+    }
+    .footer-text strong { color: #64748b; }
+
+    /* ── Dataframe: make wallet column wrap ── */
+    .stDataFrame td { white-space: pre-wrap !important; word-break: break-all !important; }
+    .stDataFrame th { font-family: 'Sora', sans-serif !important; font-weight: 600 !important; }
+
+    /* ── Glowing metric numbers ── */
+    [data-testid="metric-container"] [data-testid="stMetricValue"] {
+        font-family: 'Sora', sans-serif;
+        font-weight: 700;
+    }
+
+    /* ── Tab styling ── */
+    .stTabs [data-baseweb="tab"] {
+        font-family: 'Sora', sans-serif;
+        font-weight: 600;
+        font-size: 0.88rem;
+    }
+
+    /* ── Scrollable code block for addresses ── */
+    .address-block {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+        color: #93c5fd;
+        background: rgba(30,41,59,0.8);
+        border: 1px solid rgba(99,102,241,0.25);
+        border-radius: 8px;
+        padding: 0.7rem 1rem;
+        word-break: break-all;
+        line-height: 1.6;
     }
 </style>
 """,
@@ -296,10 +398,11 @@ def load_data():
 # -----------------------------------------------
 # Visualisation helpers
 # -----------------------------------------------
-PLOTLY_TEMPLATE = "plotly_white"
-PRIMARY_COLOR = "#1a73e8"
-DANGER_COLOR = "#e53935"
-SUCCESS_COLOR = "#43a047"
+PLOTLY_TEMPLATE = "plotly_dark"
+PRIMARY_COLOR  = "#00d2ff"
+DANGER_COLOR   = "#ef4444"
+SUCCESS_COLOR  = "#22c55e"
+ACCENT_COLOR   = "#8b5cf6"
 
 
 def plot_loss_curve(loss_history: np.ndarray) -> go.Figure:
@@ -312,10 +415,9 @@ def plot_loss_curve(loss_history: np.ndarray) -> go.Figure:
             name="Training Loss",
             line=dict(color=PRIMARY_COLOR, width=2.5),
             fill="tozeroy",
-            fillcolor="rgba(26,115,232,0.07)",
+            fillcolor="rgba(0,210,255,0.07)",
         )
     )
-    # Annotate final loss
     fig.add_annotation(
         x=epochs[-1], y=float(loss_history[-1]),
         text=f"Final: {loss_history[-1]:.4f}",
@@ -342,7 +444,7 @@ def plot_roc_curve(fpr, tpr, auc_score: float) -> go.Figure:
             name=f"ROC Curve (AUC = {auc_score:.3f})",
             line=dict(color=PRIMARY_COLOR, width=2.5),
             fill="tozeroy",
-            fillcolor="rgba(26,115,232,0.07)",
+            fillcolor="rgba(0,210,255,0.08)",
         )
     )
     fig.add_trace(
@@ -373,7 +475,7 @@ def plot_fraud_distribution(fraud_df: pd.DataFrame) -> go.Figure:
         color_discrete_sequence=[DANGER_COLOR],
     )
     # Add vertical lines for thresholds
-    for thresh, label, color in [(35, "Medium", "#fb8c00"), (60, "High", DANGER_COLOR), (80, "Critical", "#b71c1c")]:
+    for thresh, label, color in [(35, "Medium", "#f59e0b"), (60, "High", "#ef4444"), (80, "Critical", "#dc2626")]:
         fig.add_vline(x=thresh, line_dash="dot", line_color=color,
                       annotation_text=label, annotation_position="top right",
                       annotation_font_color=color)
@@ -410,7 +512,7 @@ def create_network_subgraph(
 
     edge_trace = go.Scatter(
         x=edge_x, y=edge_y,
-        line=dict(width=1, color="#aaa"),
+        line=dict(width=1, color="rgba(148,163,184,0.35)"),
         hoverinfo="none", mode="lines",
     )
 
@@ -422,7 +524,7 @@ def create_network_subgraph(
 
         try:
             addr = le.inverse_transform([node])[0]
-            label = f"{addr[:8]}…{addr[-6:]}"
+            label = addr  # Full address shown on hover
         except Exception:
             label = f"Wallet {node}"
 
@@ -431,31 +533,39 @@ def create_network_subgraph(
 
         node_text.append(label + (" 🚨" if is_fraud else ""))
         node_colors.append(
-            "#b71c1c" if (is_center and is_fraud) else
+            "#dc2626" if (is_center and is_fraud) else
             DANGER_COLOR if is_fraud else
-            "#1565c0" if is_center else
+            "#3b82f6" if is_center else
             PRIMARY_COLOR
         )
-        node_sizes.append(28 if is_center else (18 if is_fraud else 14))
+        node_sizes.append(30 if is_center else (20 if is_fraud else 15))
 
     node_trace = go.Scatter(
         x=node_x, y=node_y,
         mode="markers+text",
         hoverinfo="text",
-        text=node_text,
+        hovertext=node_text,
+        text=[t[:12] + "…" if len(t) > 14 else t for t in node_text],  # short label on graph
         textposition="top center",
-        marker=dict(size=node_sizes, color=node_colors, line=dict(width=1.5, color="white")),
+        textfont=dict(size=9, color="#94a3b8"),
+        marker=dict(
+            size=node_sizes, color=node_colors,
+            line=dict(width=1.5, color="rgba(255,255,255,0.3)"),
+            opacity=0.9,
+        ),
     )
 
     fig = go.Figure(data=[edge_trace, node_trace])
     fig.update_layout(
-        title=f"Transaction Network — Wallet {wallet_id}",
+        title=dict(text=f"Transaction Network — Wallet {wallet_id}", font=dict(size=14, color="#94a3b8")),
         showlegend=False,
         hovermode="closest",
         template=PLOTLY_TEMPLATE,
+        paper_bgcolor="rgba(15,23,42,0.0)",
+        plot_bgcolor="rgba(15,23,42,0.0)",
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        height=520,
+        height=540,
         margin=dict(t=50, b=20, l=20, r=20),
     )
     return fig
@@ -476,15 +586,27 @@ FRAUD_IDS: set = set(fraud_df["wallet_id"].tolist()) if "wallet_id" in fraud_df.
 # Sidebar
 # -----------------------------------------------
 with st.sidebar:
-    st.image(
-        "https://img.icons8.com/fluency/96/000000/blockchain-technology.png",
-        width=72,
+    st.markdown(
+        """
+        <div style="text-align:center; padding: 0.5rem 0 1rem;">
+            <div style="font-size:2.8rem;">🔗</div>
+            <div style="font-family:'Sora',sans-serif; font-size:1.05rem; font-weight:700;
+                        background:linear-gradient(135deg,#00d2ff,#8b5cf6);
+                        -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+                        background-clip:text; margin-top:4px;">
+                GNN Analytics
+            </div>
+            <div style="color:#475569; font-size:0.72rem; margin-top:2px; letter-spacing:1px;">
+                BLOCKCHAIN INTELLIGENCE
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    st.title("🔗 Navigation")
-    st.markdown("---")
+    st.markdown('<hr style="border-color:rgba(255,255,255,0.07); margin:0.5rem 0 1rem;">', unsafe_allow_html=True)
 
     section = st.radio(
-        "Select Section:",
+        "Navigate",
         [
             "🏠 Overview",
             "📊 Graph Analytics",
@@ -495,15 +617,15 @@ with st.sidebar:
         ],
     )
 
-    st.markdown("---")
-    st.markdown("### 📌 Quick Stats")
+    st.markdown('<hr style="border-color:rgba(255,255,255,0.07); margin:1rem 0;">', unsafe_allow_html=True)
+    st.markdown("**📌 Quick Stats**")
     st.metric("Total Wallets", f"{embeddings.shape[0]:,}")
     st.metric("Total Transactions", f"{stats['total_transactions']:,}")
     st.metric("Suspicious Wallets", f"{len(fraud_df):,}")
     if roc_auc_val is not None:
         st.metric("ROC-AUC Score", f"{roc_auc_val:.4f}")
 
-    st.markdown("---")
+    st.markdown('<hr style="border-color:rgba(255,255,255,0.07); margin:1rem 0;">', unsafe_allow_html=True)
     st.info(
         "**Project:** Transaction Link Prediction in Blockchain using GNN\n\n"
         "**Model:** GraphSAGE\n\n"
@@ -516,7 +638,11 @@ with st.sidebar:
 # -----------------------------------------------
 if "🏠 Overview" in section:
     st.markdown(
-        '<p class="main-header">🔗 Blockchain Transaction Analysis using Graph Neural Networks</p>',
+        '<p class="main-header">🔗 Blockchain GNN Transaction Intelligence</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p class="sub-header">GraphSAGE-powered link prediction & anomaly detection on Ethereum Mainnet</p>',
         unsafe_allow_html=True,
     )
 
@@ -611,6 +737,10 @@ elif "📊 Graph Analytics" in section:
         '<p class="main-header">📊 Graph Analytics & Statistics</p>',
         unsafe_allow_html=True,
     )
+    st.markdown(
+        '<p class="sub-header">Degree distribution, transaction explorer, and network topology metrics</p>',
+        unsafe_allow_html=True,
+    )
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -654,7 +784,22 @@ elif "📊 Graph Analytics" in section:
         except ValueError:
             st.error("Please enter a numeric wallet ID.")
 
-    st.dataframe(display_edges.head(num_rows), width="stretch")
+    # Enrich display_edges with full wallet addresses if label encoder available
+    display_edges_show = display_edges.head(num_rows).copy()
+    try:
+        display_edges_show["from_address"] = le.inverse_transform(display_edges_show["from_id"].astype(int))
+        display_edges_show["to_address"]   = le.inverse_transform(display_edges_show["to_id"].astype(int))
+    except Exception:
+        pass
+
+    st.dataframe(
+        display_edges_show,
+        use_container_width=True,
+        column_config={
+            "from_address": st.column_config.TextColumn("From Address", width="large"),
+            "to_address":   st.column_config.TextColumn("To Address",   width="large"),
+        },
+    )
 
     st.markdown("---")
     st.markdown("### 📊 Degree Distribution")
@@ -682,8 +827,8 @@ elif "🔮 Link Prediction" in section:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "Predict the probability of a future transaction between two wallet addresses. "
-        "The improved predictor combines **dot-product**, **cosine similarity**, and **L2 distance** signals."
+        '<p class="sub-header">Predict future transaction probability · Dot-product + Cosine similarity + L2 distance signals</p>',
+        unsafe_allow_html=True,
     )
     st.markdown("---")
 
@@ -691,7 +836,7 @@ elif "🔮 Link Prediction" in section:
     if st.session_state.search_history:
         st.markdown("**Recent lookups:**")
         history_html = " ".join(
-            f'<span class="history-pill">{a[:10]}…</span>'
+            f'<span class="history-pill" title="{a}">{a[:10]}…{a[-6:]}</span>'
             for a in st.session_state.search_history[-6:]
         )
         st.markdown(history_html, unsafe_allow_html=True)
@@ -800,6 +945,11 @@ elif "🔮 Link Prediction" in section:
                         st.warning("🟡 **Moderate likelihood** of future transaction")
                     else:
                         st.info("🔵 **Low likelihood** of future transaction")
+
+                    st.markdown("**Sender:**")
+                    st.markdown(f'<span class="wallet-address-full">{wallet_a}</span>', unsafe_allow_html=True)
+                    st.markdown("**Receiver:**")
+                    st.markdown(f'<span class="wallet-address-full">{wallet_b}</span>', unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 st.markdown("---")
@@ -855,8 +1005,8 @@ elif "🔮 Link Prediction" in section:
                 addr_a = le.inverse_transform([ia])[0]
                 addr_b = le.inverse_transform([ib])[0]
                 rows.append({
-                    "Sender": f"{addr_a[:10]}…{addr_a[-8:]}",
-                    "Receiver": f"{addr_b[:10]}…{addr_b[-8:]}",
+                    "Sender": addr_a,
+                    "Receiver": addr_b,
                     "Probability": round(prob, 4),
                     "Likelihood": "High" if prob > 0.7 else ("Medium" if prob > 0.4 else "Low"),
                     "Sender Fraud": "🚨" if ia in FRAUD_IDS else "✅",
@@ -864,7 +1014,16 @@ elif "🔮 Link Prediction" in section:
                 })
 
             df_pred = pd.DataFrame(rows).sort_values("Probability", ascending=False)
-            st.dataframe(df_pred, width="stretch", height=420)
+            st.dataframe(
+                df_pred,
+                use_container_width=True,
+                height=420,
+                column_config={
+                    "Sender":   st.column_config.TextColumn("Sender Address",   width="large"),
+                    "Receiver": st.column_config.TextColumn("Receiver Address", width="large"),
+                    "Probability": st.column_config.NumberColumn("Probability", format="%.4f"),
+                },
+            )
 
             st.download_button(
                 "⬇️ Export All Predictions (CSV)",
@@ -883,8 +1042,8 @@ elif "🚨 Fraud Detection" in section:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "Wallets are scored on a **0–100 risk scale** (higher = more suspicious), "
-        "derived from Isolation Forest anomaly scores on 64-dim GNN embeddings."
+        '<p class="sub-header">Wallets scored 0–100 via Isolation Forest on 64-dim GNN embeddings · Higher = more suspicious</p>',
+        unsafe_allow_html=True,
     )
     st.markdown("---")
 
@@ -959,7 +1118,15 @@ elif "🚨 Fraud Detection" in section:
             display_cols[extra] = extra
 
     disp = filtered[[c for c in display_cols if c in filtered.columns]].rename(columns=display_cols)
-    st.dataframe(disp, width="stretch", height=420)
+
+    # Build column_config so wallet address column renders fully
+    col_cfg = {}
+    if "Wallet Address" in disp.columns:
+        col_cfg["Wallet Address"] = st.column_config.TextColumn("Wallet Address", width="large")
+    if "Risk Score (0–100)" in disp.columns:
+        col_cfg["Risk Score (0–100)"] = st.column_config.NumberColumn("Risk Score (0–100)", format="%.1f")
+
+    st.dataframe(disp, use_container_width=True, height=420, column_config=col_cfg)
 
     # Export
     st.download_button(
@@ -998,7 +1165,10 @@ elif "🚨 Fraud Detection" in section:
             st.markdown("#### Wallet Details")
             try:
                 addr = le.inverse_transform([wallet_id_input])[0]
-                st.code(addr, language=None)
+                st.markdown(
+                    f'<span class="wallet-address-full">📍 {addr}</span>',
+                    unsafe_allow_html=True,
+                )
             except Exception:
                 st.write(f"Wallet ID: `{wallet_id_input}`")
 
@@ -1037,7 +1207,8 @@ elif "📈 Model Performance" in section:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "Comprehensive evaluation of the GNN model on the transaction link prediction task."
+        '<p class="sub-header">Comprehensive GNN evaluation — ROC-AUC, training loss curve & architecture details</p>',
+        unsafe_allow_html=True,
     )
     st.markdown("---")
 
@@ -1138,8 +1309,8 @@ elif "🌐 Network Visualization" in section:
         unsafe_allow_html=True,
     )
     st.markdown(
-        "Visualise the transaction graph around any wallet. "
-        "**Red nodes** are fraud-flagged; the **central wallet** is highlighted in blue."
+        '<p class="sub-header">Explore the transaction graph · Red = fraud-flagged · Blue = central wallet</p>',
+        unsafe_allow_html=True,
     )
     st.markdown("---")
 
@@ -1190,8 +1361,20 @@ elif "🌐 Network Visualization" in section:
                 with st.expander("🔍 Connected Wallets"):
                     related = edges[
                         (edges["from_id"] == wallet_id_viz) | (edges["to_id"] == wallet_id_viz)
-                    ]
-                    st.dataframe(related.head(50), width="stretch")
+                    ].copy()
+                    try:
+                        related["from_address"] = le.inverse_transform(related["from_id"].astype(int))
+                        related["to_address"]   = le.inverse_transform(related["to_id"].astype(int))
+                    except Exception:
+                        pass
+                    st.dataframe(
+                        related.head(50),
+                        use_container_width=True,
+                        column_config={
+                            "from_address": st.column_config.TextColumn("From Address", width="large"),
+                            "to_address":   st.column_config.TextColumn("To Address",   width="large"),
+                        },
+                    )
             else:
                 st.warning(f"No transactions found for wallet {wallet_id_viz}")
 
@@ -1222,8 +1405,11 @@ st.markdown(
     f"""
 <div class="footer-text">
     <strong>Transaction Link Prediction in Blockchain using Graph Neural Networks</strong><br>
-    Powered by GraphSAGE &nbsp;|&nbsp; Ethereum Mainnet data &nbsp;|&nbsp; Built with Streamlit<br>
-    <span style="color:#aaa;">Dashboard v2.0 &nbsp;|&nbsp; {datetime.now().strftime("%Y-%m-%d")}</span>
+    Powered by GraphSAGE &nbsp;·&nbsp; Ethereum Mainnet &nbsp;·&nbsp; Built with Streamlit<br>
+    <span style="color:#334155; font-size:0.75rem;">
+        Dashboard v2.1 &nbsp;·&nbsp; {datetime.now().strftime("%Y-%m-%d")} &nbsp;·&nbsp;
+        All wallet addresses displayed in full for auditability
+    </span>
 </div>
 """,
     unsafe_allow_html=True,
