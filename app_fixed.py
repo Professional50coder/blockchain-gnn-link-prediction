@@ -489,7 +489,23 @@ def create_network_subgraph(
     le,
     fraud_df: pd.DataFrame,
     max_connections: int = 25,
+    layout: str = "spring",
+    show_labels: bool = True,
 ) -> go.Figure | None:
+    """
+    Build a rich directed transaction-network graph around `wallet_id`.
+
+    Improvements over v1:
+      - Directional arrows on every edge (go.Scatter with marker mid-arrows)
+      - Separate outgoing / incoming / internal edge colouring
+      - Node colour encodes: centre · fraud-centre · fraud · normal
+      - Node size encodes degree (capped)
+      - Rich hover card: full address, wallet ID, risk level, tx counts
+      - Risk-score-derived border glow width
+      - Multiple layout algorithms selectable
+      - Legend traces for node categories
+    """
+    # ── Collect relevant edges ───────────────────────────────────────────────
     related = edges_df[
         (edges_df["from_id"] == wallet_id) | (edges_df["to_id"] == wallet_id)
     ].head(max_connections)
@@ -497,76 +513,175 @@ def create_network_subgraph(
     if len(related) == 0:
         return None
 
-    fraudulent_ids = set(fraud_df["wallet_id"].tolist()) if "wallet_id" in fraud_df.columns else set()
+    fraud_risk = (
+        fraud_df.set_index("wallet_id")["risk_score"].to_dict()
+        if "wallet_id" in fraud_df.columns else {}
+    )
+    fraud_level = (
+        fraud_df.set_index("wallet_id")["risk_level"].to_dict()
+        if "wallet_id" in fraud_df.columns else {}
+    )
+    fraudulent_ids = set(fraud_risk.keys())
 
+    # ── Build directed graph ─────────────────────────────────────────────────
     G = nx.DiGraph()
     for _, row in related.iterrows():
-        G.add_edge(int(row["from_id"]), int(row["to_id"]))
+        src, dst = int(row["from_id"]), int(row["to_id"])
+        G.add_edge(src, dst)
 
-    pos = nx.spring_layout(G, seed=42, k=1.5)
+    # Degree for sizing
+    in_deg  = dict(G.in_degree())
+    out_deg = dict(G.out_degree())
 
-    edge_x, edge_y = [], []
+    # ── Layout ───────────────────────────────────────────────────────────────
+    layout_fns = {
+        "spring":    lambda: nx.spring_layout(G, seed=42, k=2.2),
+        "kamada":    lambda: nx.kamada_kawai_layout(G),
+        "circular":  lambda: nx.circular_layout(G),
+        "shell":     lambda: nx.shell_layout(G),
+    }
+    pos = layout_fns.get(layout, layout_fns["spring"])()
+
+    # ── Edge traces — outgoing (cyan), incoming (violet), internal (slate) ───
+    out_ex, out_ey = [], []
+    in_ex,  in_ey  = [], []
+    int_ex, int_ey = [], []
+    arrows = []          # annotation-based arrowheads
+
     for u, v in G.edges():
         x0, y0 = pos[u]; x1, y1 = pos[v]
-        edge_x += [x0, x1, None]; edge_y += [y0, y1, None]
+        if u == wallet_id:
+            out_ex += [x0, x1, None]; out_ey += [y0, y1, None]
+        elif v == wallet_id:
+            in_ex  += [x0, x1, None]; in_ey  += [y0, y1, None]
+        else:
+            int_ex += [x0, x1, None]; int_ey += [y0, y1, None]
 
-    edge_trace = go.Scatter(
-        x=edge_x, y=edge_y,
-        line=dict(width=1, color="rgba(148,163,184,0.35)"),
-        hoverinfo="none", mode="lines",
-    )
+        # Mid-point arrow annotation
+        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+        arrows.append(dict(
+            x=x1, y=y1, ax=mx, ay=my,
+            xref="x", yref="y", axref="x", ayref="y",
+            showarrow=True,
+            arrowhead=2, arrowsize=1.2, arrowwidth=1.2,
+            arrowcolor=(
+                "#00d2ff" if u == wallet_id else
+                "#a78bfa" if v == wallet_id else
+                "rgba(148,163,184,0.4)"
+            ),
+        ))
 
-    node_x, node_y, node_text, node_colors, node_sizes = [], [], [], [], []
+    def edge_trace(ex, ey, color, name):
+        return go.Scatter(
+            x=ex, y=ey, mode="lines", name=name,
+            line=dict(width=1.4, color=color),
+            hoverinfo="none",
+            showlegend=bool(ex),
+        )
+
+    traces = [
+        edge_trace(out_ex, out_ey, "rgba(0,210,255,0.55)",   "Outgoing"),
+        edge_trace(in_ex,  in_ey,  "rgba(167,139,250,0.55)", "Incoming"),
+        edge_trace(int_ex, int_ey, "rgba(148,163,184,0.25)", "Internal"),
+    ]
+
+    # ── Node traces — one per category for legend ───────────────────────────
+    categories = {
+        "center_fraud": {"color": "#fbbf24", "border": "#f59e0b", "size_base": 34, "label": "⭐ Centre (Flagged)"},
+        "center":       {"color": "#3b82f6", "border": "#60a5fa", "size_base": 32, "label": "🔵 Centre Wallet"},
+        "fraud":        {"color": "#ef4444", "border": "#dc2626", "size_base": 22, "label": "🔴 Flagged Wallet"},
+        "normal":       {"color": "#00d2ff", "border": "#38bdf8", "size_base": 16, "label": "⚪ Normal Wallet"},
+    }
+
+    cat_nodes: dict[str, list] = {k: [] for k in categories}
 
     for node in G.nodes():
-        x, y = pos[node]
-        node_x.append(x); node_y.append(y)
-
-        try:
-            addr = le.inverse_transform([node])[0]
-            label = addr  # Full address shown on hover
-        except Exception:
-            label = f"Wallet {node}"
-
-        is_fraud = node in fraudulent_ids
+        is_fraud  = node in fraudulent_ids
         is_center = node == wallet_id
+        if   is_center and is_fraud: cat_nodes["center_fraud"].append(node)
+        elif is_center:              cat_nodes["center"].append(node)
+        elif is_fraud:               cat_nodes["fraud"].append(node)
+        else:                        cat_nodes["normal"].append(node)
 
-        node_text.append(label + (" 🚨" if is_fraud else ""))
-        node_colors.append(
-            "#dc2626" if (is_center and is_fraud) else
-            DANGER_COLOR if is_fraud else
-            "#3b82f6" if is_center else
-            PRIMARY_COLOR
-        )
-        node_sizes.append(30 if is_center else (20 if is_fraud else 15))
+    for cat, cfg in categories.items():
+        nids = cat_nodes[cat]
+        if not nids:
+            continue
+        nx_list, ny_list, hover_list, size_list, sym_list = [], [], [], [], []
+        for node in nids:
+            x, y = pos[node]
+            nx_list.append(x); ny_list.append(y)
 
-    node_trace = go.Scatter(
-        x=node_x, y=node_y,
-        mode="markers+text",
-        hoverinfo="text",
-        hovertext=node_text,
-        text=[t[:12] + "…" if len(t) > 14 else t for t in node_text],  # short label on graph
-        textposition="top center",
-        textfont=dict(size=9, color="#94a3b8"),
-        marker=dict(
-            size=node_sizes, color=node_colors,
-            line=dict(width=1.5, color="rgba(255,255,255,0.3)"),
-            opacity=0.9,
-        ),
-    )
+            # Full address for hover
+            try:
+                addr_str = le.inverse_transform([node])[0]
+            except Exception:
+                addr_str = f"ID {node}"
 
-    fig = go.Figure(data=[edge_trace, node_trace])
+            rs_val  = fraud_risk.get(node, None)
+            rl_val  = fraud_level.get(node, "Clean")
+            id_deg  = in_deg.get(node, 0)
+            od_deg  = out_deg.get(node, 0)
+            hover_list.append(
+                f"<b>{addr_str}</b><br>"
+                f"Wallet ID: {node}<br>"
+                f"Risk: {rl_val}"
+                + (f" ({rs_val:.1f}/100)" if rs_val is not None else "") +
+                f"<br>Out-degree: {od_deg}  In-degree: {id_deg}"
+                + (" <b>⭐ CENTRE</b>" if node == wallet_id else "")
+            )
+            # Size scales with sqrt of total degree, capped
+            deg_size = cfg["size_base"] + min(int((id_deg + od_deg) ** 0.5) * 2, 14)
+            size_list.append(deg_size)
+            sym_list.append("star" if node == wallet_id else "circle")
+
+        traces.append(go.Scatter(
+            x=nx_list, y=ny_list,
+            mode="markers+text" if show_labels else "markers",
+            name=cfg["label"],
+            hoverinfo="text",
+            hovertext=hover_list,
+            text=[
+                (le.inverse_transform([n])[0][:8] + "…" if show_labels else "")
+                for n in nids
+            ],
+            textposition="top center",
+            textfont=dict(size=8, color="#94a3b8", family="JetBrains Mono"),
+            marker=dict(
+                size=size_list,
+                color=cfg["color"],
+                symbol=sym_list,
+                line=dict(width=2, color=cfg["border"]),
+                opacity=0.92,
+            ),
+            showlegend=True,
+        ))
+
+    # ── Assemble figure ──────────────────────────────────────────────────────
+    fig = go.Figure(data=traces)
     fig.update_layout(
-        title=dict(text=f"Transaction Network — Wallet {wallet_id}", font=dict(size=14, color="#94a3b8")),
-        showlegend=False,
+        annotations=arrows,
+        title=dict(
+            text=f"Transaction Network — Wallet {wallet_id}",
+            font=dict(size=13, color="#94a3b8", family="Sora"),
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom", y=1.02,
+            xanchor="left", x=0,
+            font=dict(size=11, color="#94a3b8"),
+            bgcolor="rgba(15,23,42,0.6)",
+            bordercolor="rgba(255,255,255,0.08)",
+            borderwidth=1,
+        ),
         hovermode="closest",
         template=PLOTLY_TEMPLATE,
         paper_bgcolor="rgba(15,23,42,0.0)",
         plot_bgcolor="rgba(15,23,42,0.0)",
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        height=540,
-        margin=dict(t=50, b=20, l=20, r=20),
+        height=600,
+        margin=dict(t=80, b=20, l=20, r=20),
     )
     return fig
 
@@ -1682,90 +1797,286 @@ elif "🌐 Network Visualization" in section:
         unsafe_allow_html=True,
     )
     st.markdown(
-        '<p class="sub-header">Explore the transaction graph · Red = fraud-flagged · Blue = central wallet</p>',
+        '<p class="sub-header">Explore the live transaction graph · Directional edges · Fraud-aware node colouring · Full wallet addresses on hover</p>',
         unsafe_allow_html=True,
     )
-    st.markdown("---")
 
-    col1, col2, col3 = st.columns([3, 1, 1])
-    with col1:
+    # ── Controls row ─────────────────────────────────────────────────────────
+    vc1, vc2, vc3 = st.columns([1, 1, 1])
+    with vc1:
         wallet_id_viz = st.number_input(
-            "Wallet ID",
+            "Centre Wallet ID",
             min_value=0,
             max_value=int(embeddings.shape[0] - 1),
-            value=0,
+            value=int(st.session_state.get("_viz_wallet", 0)),
+            key="viz_wallet_id",
         )
-    with col2:
-        max_connections = st.slider("Max connections", 10, 60, 25)
-    with col3:
-        depth = st.selectbox("Hop depth", ["1-hop", "2-hop (slower)"], index=0)
+    with vc2:
+        if st.button("🚨 Jump to Top Fraud Wallet", use_container_width=True):
+            st.session_state["_viz_wallet"] = int(
+                fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"]
+            )
+            st.rerun()
+    with vc3:
+        if st.button("🎲 Random Wallet", use_container_width=True, key="viz_rand"):
+            st.session_state["_viz_wallet"] = int(np.random.randint(0, embeddings.shape[0]))
+            st.rerun()
 
-    if st.button("🌐 Generate Network Graph", type="primary", use_container_width=True):
+    # ── Graph settings ────────────────────────────────────────────────────────
+    with st.expander("⚙️ Graph Settings", expanded=True):
+        gs1, gs2, gs3, gs4 = st.columns(4)
+        with gs1:
+            max_connections = st.slider("Max edges shown", 10, 100, 40, step=5)
+        with gs2:
+            depth = st.selectbox("Hop depth", ["1-hop", "2-hop"], index=0)
+        with gs3:
+            layout_algo = st.selectbox(
+                "Layout algorithm",
+                ["spring", "kamada", "circular", "shell"],
+                index=0,
+                help="spring = force-directed (default) · kamada = energy minimisation · circular / shell = geometric"
+            )
+        with gs4:
+            show_labels = st.toggle("Show address labels", value=True)
+
+    generate_btn = st.button("🌐 Generate Network Graph", type="primary", use_container_width=True)
+
+    if generate_btn:
+        wid_viz = int(wallet_id_viz)
+
         with st.spinner("Building graph …"):
-            if depth == "2-hop (slower)":
-                # extend edges one more hop
+            # ── Build edge set ────────────────────────────────────────────
+            if depth == "2-hop":
                 hop1 = edges[
-                    (edges["from_id"] == wallet_id_viz) | (edges["to_id"] == wallet_id_viz)
+                    (edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)
                 ]
                 hop1_nodes = set(hop1["from_id"].tolist() + hop1["to_id"].tolist())
                 hop2 = edges[
                     edges["from_id"].isin(hop1_nodes) | edges["to_id"].isin(hop1_nodes)
                 ]
-                combined = pd.concat([hop1, hop2]).drop_duplicates().head(max_connections)
-                fig = create_network_subgraph(combined, wallet_id_viz, le, fraud_df, max_connections)
+                graph_edges = pd.concat([hop1, hop2]).drop_duplicates()
             else:
-                fig = create_network_subgraph(edges, wallet_id_viz, le, fraud_df, max_connections)
+                graph_edges = edges[
+                    (edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)
+                ]
 
-            if fig:
-                st.plotly_chart(fig, use_container_width=True)
+            fig = create_network_subgraph(
+                graph_edges, wid_viz, le, fraud_df,
+                max_connections=max_connections,
+                layout=layout_algo,
+                show_labels=show_labels,
+            )
 
-                # Stats
-                st.markdown("---")
-                st.markdown("### 📊 Network Statistics")
-                out_txs = edges[edges["from_id"] == wallet_id_viz]
-                in_txs = edges[edges["to_id"] == wallet_id_viz]
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Outgoing Txs", f"{len(out_txs):,}")
-                col2.metric("Incoming Txs", f"{len(in_txs):,}")
-                col3.metric("Total Connections", f"{len(out_txs) + len(in_txs):,}")
-                is_fraud_node = wallet_id_viz in FRAUD_IDS
-                col4.metric("Fraud Status", "🚨 Flagged" if is_fraud_node else "✅ Clean")
+        if not fig:
+            st.warning(f"No transactions found for wallet ID {wid_viz}.")
+            st.stop()
 
-                with st.expander("🔍 Connected Wallets"):
-                    related = edges[
-                        (edges["from_id"] == wallet_id_viz) | (edges["to_id"] == wallet_id_viz)
-                    ].copy()
+        # ── Resolve address ───────────────────────────────────────────────
+        try:
+            centre_addr = le.inverse_transform([wid_viz])[0]
+        except Exception:
+            centre_addr = None
+
+        # ── Address banner ────────────────────────────────────────────────
+        is_fraud_centre = wid_viz in FRAUD_IDS
+        if centre_addr:
+            st.markdown(
+                f'<span class="wallet-address-full">📍 {centre_addr}</span>',
+                unsafe_allow_html=True,
+            )
+        fraud_info = fraud_df[fraud_df["wallet_id"] == wid_viz]
+        if is_fraud_centre and len(fraud_info) > 0:
+            rs_c = float(fraud_info.iloc[0]["risk_score"])
+            rl_c = fraud_info.iloc[0]["risk_level"]
+            badge_color = {"Critical":"#dc2626","High":"#ef4444","Medium":"#d97706","Low":"#16a34a"}.get(rl_c,"#6366f1")
+            st.markdown(
+                f'<div style="background:{badge_color}22; border:1px solid {badge_color}55; '
+                f'border-radius:10px; padding:0.6rem 1rem; margin:0.5rem 0;">'
+                f'<b style="color:{badge_color};">⚠️ {rl_c} Risk — Score {rs_c:.1f}/100</b></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="background:#16a34a22; border:1px solid #16a34a44; '
+                'border-radius:10px; padding:0.6rem 1rem; margin:0.5rem 0;">'
+                '<b style="color:#4ade80;">✅ Clean Wallet</b></div>',
+                unsafe_allow_html=True,
+            )
+
+        # ── Graph plot ────────────────────────────────────────────────────
+        st.plotly_chart(fig, use_container_width=True)
+
+        # ── Legend explainer ──────────────────────────────────────────────
+        st.markdown(
+            """
+            <div style="display:flex; gap:18px; flex-wrap:wrap; font-size:0.8rem;
+                        color:#94a3b8; padding:0.3rem 0 1rem;">
+                <span>⭐ <b style="color:#fbbf24;">Gold star</b> = Centre wallet (if flagged)</span>
+                <span>🔵 <b style="color:#3b82f6;">Blue</b> = Centre wallet (clean)</span>
+                <span>🔴 <b style="color:#ef4444;">Red</b> = Flagged wallet</span>
+                <span>⚪ <b style="color:#00d2ff;">Cyan</b> = Normal wallet</span>
+                <span>→ <b style="color:#00d2ff;">Cyan edges</b> = Outgoing</span>
+                <span>→ <b style="color:#a78bfa;">Violet edges</b> = Incoming</span>
+                <span style="color:#64748b;">Node size ∝ degree</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("---")
+
+        # ── KPI metrics ───────────────────────────────────────────────────
+        out_txs  = edges[edges["from_id"] == wid_viz]
+        in_txs   = edges[edges["to_id"]   == wid_viz]
+        all_cp   = set(out_txs["to_id"].tolist()) | set(in_txs["from_id"].tolist())
+        fraud_cp = all_cp & FRAUD_IDS
+        fraud_pct = round(len(fraud_cp) / max(len(all_cp), 1) * 100, 1)
+
+        km1, km2, km3, km4, km5, km6 = st.columns(6)
+        km1.metric("Outgoing Txs",         f"{len(out_txs):,}")
+        km2.metric("Incoming Txs",         f"{len(in_txs):,}")
+        km3.metric("Total Txs",            f"{len(out_txs)+len(in_txs):,}")
+        km4.metric("Unique Counterparties",f"{len(all_cp):,}")
+        km5.metric("Flagged Counterparties",f"{len(fraud_cp):,}")
+        km6.metric("Fraud Exposure",       f"{fraud_pct}%",
+                   delta=("⚠️ High" if fraud_pct > 30 else "🟡 Moderate" if fraud_pct > 10 else "✅ Low"),
+                   delta_color="off")
+
+        st.markdown("")
+
+        # ── Two-tab detail panel ──────────────────────────────────────────
+        detail_tab1, detail_tab2 = st.tabs(["📋 Connected Wallets", "🚨 Flagged Counterparties"])
+
+        with detail_tab1:
+            connected = edges[
+                (edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)
+            ].copy()
+            try:
+                connected["from_address"] = le.inverse_transform(connected["from_id"].astype(int))
+                connected["to_address"]   = le.inverse_transform(connected["to_id"].astype(int))
+            except Exception:
+                pass
+            connected["from_fraud"] = connected["from_id"].apply(lambda x: "🚨" if x in FRAUD_IDS else "✅")
+            connected["to_fraud"]   = connected["to_id"].apply(  lambda x: "🚨" if x in FRAUD_IDS else "✅")
+
+            st.dataframe(
+                connected,
+                use_container_width=True,
+                height=320,
+                column_config={
+                    "from_address": st.column_config.TextColumn("From Address", width="large"),
+                    "to_address":   st.column_config.TextColumn("To Address",   width="large"),
+                    "from_fraud":   st.column_config.TextColumn("From Flag",    width="small"),
+                    "to_fraud":     st.column_config.TextColumn("To Flag",      width="small"),
+                },
+            )
+            st.download_button(
+                f"⬇️ Export Connected Wallets ({len(connected):,} rows)",
+                connected.to_csv(index=False),
+                file_name=f"network_wallet_{wid_viz}.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+
+        with detail_tab2:
+            if fraud_cp:
+                fp_rows = []
+                for fid in sorted(fraud_cp):
+                    fi = fraud_df[fraud_df["wallet_id"] == fid]
                     try:
-                        related["from_address"] = le.inverse_transform(related["from_id"].astype(int))
-                        related["to_address"]   = le.inverse_transform(related["to_id"].astype(int))
+                        fa = le.inverse_transform([int(fid)])[0]
                     except Exception:
-                        pass
-                    st.dataframe(
-                        related.head(50),
-                        use_container_width=True,
-                        column_config={
-                            "from_address": st.column_config.TextColumn("From Address", width="large"),
-                            "to_address":   st.column_config.TextColumn("To Address",   width="large"),
-                        },
-                    )
+                        fa = f"ID {fid}"
+                    dirs = []
+                    if fid in set(out_txs["to_id"]):   dirs.append("Sent To")
+                    if fid in set(in_txs["from_id"]):  dirs.append("Received From")
+                    fp_rows.append({
+                        "Wallet Address": fa,
+                        "Wallet ID":      int(fid),
+                        "Risk Level":     fi.iloc[0]["risk_level"]  if len(fi) > 0 else "—",
+                        "Risk Score":     round(float(fi.iloc[0]["risk_score"]), 1) if len(fi) > 0 else 0.0,
+                        "Relationship":   " & ".join(dirs),
+                    })
+                fp_df = pd.DataFrame(fp_rows).sort_values("Risk Score", ascending=False)
+                st.dataframe(
+                    fp_df,
+                    use_container_width=True,
+                    height=280,
+                    column_config={
+                        "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
+                        "Risk Score":     st.column_config.NumberColumn("Risk Score",   format="%.1f"),
+                    },
+                    hide_index=True,
+                )
+                st.download_button(
+                    f"⬇️ Export {len(fp_df)} Flagged Counterparties",
+                    fp_df.to_csv(index=False),
+                    file_name=f"flagged_counterparties_wallet_{wid_viz}.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
             else:
-                st.warning(f"No transactions found for wallet {wallet_id_viz}")
+                st.success("✅ No flagged wallets found among direct counterparties.")
 
+    # ── Suspicious Wallet Networks panel ─────────────────────────────────────
     st.markdown("---")
+    st.markdown("### 🚨 Top Suspicious Wallet Networks")
+    st.markdown(
+        '<p style="color:#64748b; font-size:0.85rem; margin-top:-0.5rem;">'
+        'Automatically renders the transaction neighbourhood of the highest-risk flagged wallets.</p>',
+        unsafe_allow_html=True,
+    )
 
-    # Top suspicious wallet networks
-    st.markdown("### 🚨 Suspicious Wallet Networks")
-    top_n_fraud = st.selectbox("Show top N fraud wallets", [3, 5, 10], index=1)
-    if st.button("🔍 Analyse Suspicious Wallet Networks", use_container_width=True):
-        top_fraud = fraud_df.sort_values("risk_score", ascending=False).head(top_n_fraud)
-        for _, row in top_fraud.iterrows():
-            wid = int(row["wallet_id"])
-            rs = float(row["risk_score"])
-            rl = row["risk_level"]
-            with st.expander(f"Wallet {wid} — Risk Score {rs:.1f} ({rl})"):
-                fig = create_network_subgraph(edges, wid, le, fraud_df, max_connections=15)
-                if fig:
-                    st.plotly_chart(fig, use_container_width=True)
+    sp1, sp2, sp3 = st.columns([2, 1, 1])
+    with sp1:
+        top_n_fraud = st.selectbox("Show top N suspicious wallets", [3, 5, 10], index=1)
+    with sp2:
+        susp_max_conn = st.slider("Max edges per graph", 10, 40, 15, key="susp_conn")
+    with sp3:
+        susp_layout = st.selectbox("Layout", ["spring", "kamada", "circular"], key="susp_layout")
+
+    if st.button("🔍 Render Suspicious Wallet Networks", use_container_width=True):
+        top_fraud_list = fraud_df.sort_values("risk_score", ascending=False).head(top_n_fraud)
+        for _, row in top_fraud_list.iterrows():
+            fw_id = int(row["wallet_id"])
+            fw_rs = float(row["risk_score"])
+            fw_rl = row["risk_level"]
+            try:
+                fw_addr = le.inverse_transform([fw_id])[0]
+                label_str = f"{fw_addr[:18]}… — {fw_rl} Risk ({fw_rs:.1f}/100)"
+            except Exception:
+                label_str = f"Wallet {fw_id} — {fw_rl} Risk ({fw_rs:.1f}/100)"
+
+            with st.expander(label_str, expanded=False):
+                # Full address
+                try:
+                    full_addr = le.inverse_transform([fw_id])[0]
+                    st.markdown(
+                        f'<span class="wallet-address-full">📍 {full_addr}</span>',
+                        unsafe_allow_html=True,
+                    )
+                except Exception:
+                    pass
+
+                sub_fig = create_network_subgraph(
+                    edges, fw_id, le, fraud_df,
+                    max_connections=susp_max_conn,
+                    layout=susp_layout,
+                    show_labels=True,
+                )
+                if sub_fig:
+                    st.plotly_chart(sub_fig, use_container_width=True)
+
+                    # Mini stats
+                    s_out = edges[edges["from_id"] == fw_id]
+                    s_in  = edges[edges["to_id"]   == fw_id]
+                    s_cp  = set(s_out["to_id"].tolist()) | set(s_in["from_id"].tolist())
+                    s_fraud_cp = s_cp & FRAUD_IDS
+                    sc1, sc2, sc3, sc4 = st.columns(4)
+                    sc1.metric("Outgoing", f"{len(s_out):,}")
+                    sc2.metric("Incoming", f"{len(s_in):,}")
+                    sc3.metric("Counterparties", f"{len(s_cp):,}")
+                    sc4.metric("Flagged CPs", f"{len(s_fraud_cp):,}")
                 else:
                     st.info("No transactions found for this wallet.")
 
