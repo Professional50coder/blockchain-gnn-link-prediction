@@ -2,6 +2,8 @@
 
 An interactive Streamlit dashboard for analyzing Ethereum blockchain transactions using Graph Neural Networks (GNN).
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Professional50coder/blockchain-gnn-link-prediction)
+
 ## 📋 Features
 
 - **📊 Graph Analytics**: Comprehensive network statistics and visualizations
