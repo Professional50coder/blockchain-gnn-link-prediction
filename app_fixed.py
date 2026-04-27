@@ -31,48 +31,77 @@ st.set_page_config(
 )
 
 # -----------------------------------------------
-# Custom CSS — Premium Dark Blockchain Theme
+# Session-state initialisation
 # -----------------------------------------------
-st.markdown(
-    """
+if "search_history" not in st.session_state:
+    st.session_state.search_history = []
+
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = True  # Default: dark mode
+
+
+# -----------------------------------------------
+# Theme variables
+# -----------------------------------------------
+def get_theme():
+    if st.session_state.dark_mode:
+        return {
+            "plotly_template": "plotly_dark",
+            "primary": "#00d2ff",
+            "danger": "#ef4444",
+            "success": "#22c55e",
+            "accent": "#8b5cf6",
+            "bg_main": "rgba(15,23,42,0.0)",
+            "bg_plot": "rgba(15,23,42,0.0)",
+            "text_muted": "#94a3b8",
+        }
+    else:
+        return {
+            "plotly_template": "plotly_white",
+            "primary": "#0369a1",
+            "danger": "#dc2626",
+            "success": "#16a34a",
+            "accent": "#7c3aed",
+            "bg_main": "rgba(255,255,255,0.0)",
+            "bg_plot": "rgba(255,255,255,0.0)",
+            "text_muted": "#475569",
+        }
+
+
+THEME = get_theme()
+PLOTLY_TEMPLATE = THEME["plotly_template"]
+PRIMARY_COLOR   = THEME["primary"]
+DANGER_COLOR    = THEME["danger"]
+SUCCESS_COLOR   = THEME["success"]
+ACCENT_COLOR    = THEME["accent"]
+
+# -----------------------------------------------
+# Custom CSS — Dynamic Light / Dark Theme
+# -----------------------------------------------
+def inject_css(dark: bool):
+    if dark:
+        css = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700;800&display=swap');
 
-    /* ── Global ── */
-    html, body, [class*="css"] {
-        font-family: 'Sora', sans-serif;
-    }
-
-    /* Hide default Streamlit branding */
+    html, body, [class*="css"] { font-family: 'Sora', sans-serif; }
     #MainMenu, footer { visibility: hidden; }
 
-    /* ── Main header ── */
-    .main-header {
-        font-family: 'Sora', sans-serif;
-        font-size: 2.1rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 50%, #8b5cf6 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        text-align: center;
-        margin-bottom: 0.5rem;
-        letter-spacing: -0.5px;
-    }
-    .sub-header {
-        text-align: center;
-        color: #94a3b8;
-        font-size: 0.92rem;
-        font-weight: 300;
-        margin-bottom: 1.8rem;
-        letter-spacing: 0.3px;
-    }
+    /* ── Dark background override ── */
+    .stApp { background-color: #0f172a !important; }
+    section[data-testid="stSidebar"] { background-color: #0f1e35 !important; }
 
-    /* ── Cards ── */
+    .main-header {
+        font-family: 'Sora', sans-serif; font-size: 2.1rem; font-weight: 800;
+        background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 50%, #8b5cf6 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text; text-align: center; margin-bottom: 0.5rem; letter-spacing: -0.5px;
+    }
+    .sub-header { text-align:center; color:#94a3b8; font-size:0.92rem; font-weight:300; margin-bottom:1.8rem; letter-spacing:0.3px; }
+
     .metric-card {
         background: linear-gradient(145deg, rgba(0,210,255,0.08), rgba(58,123,213,0.06));
-        padding: 1.1rem 1.3rem;
-        border-radius: 12px;
+        padding: 1.1rem 1.3rem; border-radius: 12px;
         border: 1px solid rgba(0,210,255,0.18);
         box-shadow: 0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
         transition: transform 0.2s, box-shadow 0.2s;
@@ -81,171 +110,197 @@ st.markdown(
 
     .fraud-alert {
         background: linear-gradient(145deg, rgba(239,68,68,0.1), rgba(185,28,28,0.06));
-        padding: 1.1rem 1.3rem;
-        border-radius: 12px;
-        border: 1px solid rgba(239,68,68,0.25);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(239,68,68,0.25); box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
     .success-box {
         background: linear-gradient(145deg, rgba(34,197,94,0.1), rgba(21,128,61,0.06));
-        padding: 1.1rem 1.3rem;
-        border-radius: 12px;
-        border: 1px solid rgba(34,197,94,0.25);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(34,197,94,0.25); box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
     .warning-box {
         background: linear-gradient(145deg, rgba(251,146,60,0.1), rgba(194,65,12,0.06));
-        padding: 1.1rem 1.3rem;
-        border-radius: 12px;
-        border: 1px solid rgba(251,146,60,0.25);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(251,146,60,0.25); box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
     .info-box {
         background: linear-gradient(145deg, rgba(99,102,241,0.1), rgba(67,56,202,0.06));
-        padding: 1.1rem 1.3rem;
-        border-radius: 12px;
-        border: 1px solid rgba(99,102,241,0.25);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(99,102,241,0.25); box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
 
-    /* ── Risk badges ── */
-    .risk-critical {
-        background: linear-gradient(135deg, #7f1d1d, #b91c1c);
-        color: #fecaca; padding: 4px 13px; border-radius: 20px;
-        font-size: 0.76rem; font-weight: 700; letter-spacing: 0.5px;
-        border: 1px solid rgba(239,68,68,0.4);
-    }
-    .risk-high {
-        background: linear-gradient(135deg, #991b1b, #dc2626);
-        color: #fee2e2; padding: 4px 13px; border-radius: 20px;
-        font-size: 0.76rem; font-weight: 700; letter-spacing: 0.5px;
-        border: 1px solid rgba(239,68,68,0.3);
-    }
-    .risk-medium {
-        background: linear-gradient(135deg, #92400e, #d97706);
-        color: #fef3c7; padding: 4px 13px; border-radius: 20px;
-        font-size: 0.76rem; font-weight: 700; letter-spacing: 0.5px;
-        border: 1px solid rgba(251,191,36,0.3);
-    }
-    .risk-low {
-        background: linear-gradient(135deg, #14532d, #16a34a);
-        color: #dcfce7; padding: 4px 13px; border-radius: 20px;
-        font-size: 0.76rem; font-weight: 700; letter-spacing: 0.5px;
-        border: 1px solid rgba(34,197,94,0.3);
-    }
+    .risk-critical { background:linear-gradient(135deg,#7f1d1d,#b91c1c); color:#fecaca; padding:4px 13px; border-radius:20px; font-size:0.76rem; font-weight:700; letter-spacing:0.5px; border:1px solid rgba(239,68,68,0.4); }
+    .risk-high     { background:linear-gradient(135deg,#991b1b,#dc2626); color:#fee2e2; padding:4px 13px; border-radius:20px; font-size:0.76rem; font-weight:700; letter-spacing:0.5px; border:1px solid rgba(239,68,68,0.3); }
+    .risk-medium   { background:linear-gradient(135deg,#92400e,#d97706); color:#fef3c7; padding:4px 13px; border-radius:20px; font-size:0.76rem; font-weight:700; letter-spacing:0.5px; border:1px solid rgba(251,191,36,0.3); }
+    .risk-low      { background:linear-gradient(135deg,#14532d,#16a34a); color:#dcfce7; padding:4px 13px; border-radius:20px; font-size:0.76rem; font-weight:700; letter-spacing:0.5px; border:1px solid rgba(34,197,94,0.3); }
 
-    /* ── Wallet address display ── */
     .wallet-address-full {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.82rem;
-        background: rgba(0,210,255,0.07);
-        border: 1px solid rgba(0,210,255,0.2);
-        border-radius: 8px;
-        padding: 0.55rem 0.9rem;
-        color: #7dd3fc;
-        word-break: break-all;
-        letter-spacing: 0.3px;
-        display: block;
-        margin: 4px 0;
+        font-family:'JetBrains Mono',monospace; font-size:0.82rem;
+        background:rgba(0,210,255,0.07); border:1px solid rgba(0,210,255,0.2);
+        border-radius:8px; padding:0.55rem 0.9rem; color:#7dd3fc;
+        word-break:break-all; letter-spacing:0.3px; display:block; margin:4px 0;
     }
+    .valid-address   { color:#4ade80; font-size:0.82rem; font-weight:600; }
+    .invalid-address { color:#f87171; font-size:0.82rem; font-weight:600; }
 
-    /* ── Validation feedback ── */
-    .valid-address   { color: #4ade80; font-size: 0.82rem; font-weight: 600; }
-    .invalid-address { color: #f87171; font-size: 0.82rem; font-weight: 600; }
-
-    /* ── History pills ── */
     .history-pill {
-        display: inline-block;
-        background: rgba(0,210,255,0.1);
-        color: #7dd3fc;
-        border-radius: 20px;
-        padding: 3px 12px;
-        font-size: 0.73rem;
-        font-family: 'JetBrains Mono', monospace;
-        margin: 2px;
-        border: 1px solid rgba(0,210,255,0.2);
-        cursor: pointer;
+        display:inline-block; background:rgba(0,210,255,0.1); color:#7dd3fc;
+        border-radius:20px; padding:3px 12px; font-size:0.73rem;
+        font-family:'JetBrains Mono',monospace; margin:2px;
+        border:1px solid rgba(0,210,255,0.2); cursor:pointer;
     }
+    .section-divider { height:1px; background:linear-gradient(90deg,transparent,rgba(0,210,255,0.3),transparent); margin:1.5rem 0; border:none; }
+    .sidebar-stat { background:rgba(255,255,255,0.04); border-radius:8px; padding:0.5rem 0.8rem; margin:4px 0; font-size:0.88rem; border:1px solid rgba(255,255,255,0.07); }
 
-    /* ── Section divider ── */
-    .section-divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(0,210,255,0.3), transparent);
-        margin: 1.5rem 0;
-        border: none;
+    .footer-text { text-align:center; color:#475569; font-size:0.80rem; padding:2rem 0 1rem; letter-spacing:0.3px; }
+    .footer-text strong { color:#64748b; }
+
+    .stDataFrame td { white-space:pre-wrap !important; word-break:break-all !important; }
+    .stDataFrame th { font-family:'Sora',sans-serif !important; font-weight:600 !important; }
+    [data-testid="metric-container"] [data-testid="stMetricValue"] { font-family:'Sora',sans-serif; font-weight:700; }
+    .stTabs [data-baseweb="tab"] { font-family:'Sora',sans-serif; font-weight:600; font-size:0.88rem; }
+    .address-block { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:#93c5fd; background:rgba(30,41,59,0.8); border:1px solid rgba(99,102,241,0.25); border-radius:8px; padding:0.7rem 1rem; word-break:break-all; line-height:1.6; }
+
+    /* Toggle button dark */
+    .theme-toggle-btn {
+        display:flex; align-items:center; justify-content:center; gap:8px;
+        background:linear-gradient(135deg, rgba(0,210,255,0.15), rgba(139,92,246,0.15));
+        border:1px solid rgba(0,210,255,0.3); border-radius:25px;
+        padding:8px 18px; color:#7dd3fc; font-family:'Sora',sans-serif;
+        font-size:0.85rem; font-weight:600; cursor:pointer; width:100%;
+        transition:all 0.2s; margin-bottom:8px;
     }
-
-    /* ── Stat badge for sidebar ── */
-    .sidebar-stat {
-        background: rgba(255,255,255,0.04);
-        border-radius: 8px;
-        padding: 0.5rem 0.8rem;
-        margin: 4px 0;
-        font-size: 0.88rem;
-        border: 1px solid rgba(255,255,255,0.07);
-    }
-
-    /* ── Footer ── */
-    .footer-text {
-        text-align: center;
-        color: #475569;
-        font-size: 0.80rem;
-        padding: 2rem 0 1rem;
-        letter-spacing: 0.3px;
-    }
-    .footer-text strong { color: #64748b; }
-
-    /* ── Dataframe: make wallet column wrap ── */
-    .stDataFrame td { white-space: pre-wrap !important; word-break: break-all !important; }
-    .stDataFrame th { font-family: 'Sora', sans-serif !important; font-weight: 600 !important; }
-
-    /* ── Glowing metric numbers ── */
-    [data-testid="metric-container"] [data-testid="stMetricValue"] {
-        font-family: 'Sora', sans-serif;
-        font-weight: 700;
-    }
-
-    /* ── Tab styling ── */
-    .stTabs [data-baseweb="tab"] {
-        font-family: 'Sora', sans-serif;
-        font-weight: 600;
-        font-size: 0.88rem;
-    }
-
-    /* ── Scrollable code block for addresses ── */
-    .address-block {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.8rem;
-        color: #93c5fd;
-        background: rgba(30,41,59,0.8);
-        border: 1px solid rgba(99,102,241,0.25);
-        border-radius: 8px;
-        padding: 0.7rem 1rem;
-        word-break: break-all;
-        line-height: 1.6;
-    }
+    .theme-toggle-btn:hover { background:linear-gradient(135deg, rgba(0,210,255,0.25), rgba(139,92,246,0.25)); transform:translateY(-1px); }
 </style>
-""",
-    unsafe_allow_html=True,
-)
+"""
+    else:
+        css = """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;400;600;700;800&display=swap');
 
-# -----------------------------------------------
-# Session-state initialisation
-# -----------------------------------------------
-if "search_history" not in st.session_state:
-    st.session_state.search_history = []
+    html, body, [class*="css"] { font-family: 'Sora', sans-serif; }
+    #MainMenu, footer { visibility: hidden; }
+
+    /* ── Light background override ── */
+    .stApp { background-color: #f0f4f8 !important; }
+    section[data-testid="stSidebar"] { background-color: #e2e8f0 !important; }
+
+    /* Force light text colors for sidebar */
+    section[data-testid="stSidebar"] * { color: #1e293b !important; }
+    section[data-testid="stSidebar"] .stMetric label { color: #475569 !important; }
+    section[data-testid="stSidebar"] .stMetric [data-testid="stMetricValue"] { color: #0f172a !important; }
+    section[data-testid="stSidebar"] .stRadio label { color: #1e293b !important; }
+    section[data-testid="stSidebar"] .stInfo { background-color: rgba(3,105,161,0.1) !important; border-color: rgba(3,105,161,0.3) !important; }
+
+    /* Force main content text colors */
+    .stApp p, .stApp li, .stApp span:not(.stMetricDelta *) { color: #1e293b; }
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4 { color: #0f172a; }
+    [data-testid="stMetricValue"] { color: #0f172a !important; }
+    [data-testid="stMetricLabel"] { color: #475569 !important; }
+    .stApp .stMarkdown { color: #1e293b; }
+    .stApp label { color: #334155 !important; }
+    .stApp .stTextInput input { background: #ffffff !important; color: #0f172a !important; border-color: #cbd5e1 !important; }
+    .stApp .stSelectbox select { background: #ffffff !important; color: #0f172a !important; }
+    .stApp .stNumberInput input { background: #ffffff !important; color: #0f172a !important; }
+    .stDataFrame { background: #ffffff !important; }
+    .stDataFrame td, .stDataFrame th { color: #0f172a !important; }
+
+    .main-header {
+        font-family: 'Sora', sans-serif; font-size: 2.1rem; font-weight: 800;
+        background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 50%, #7c3aed 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text; text-align: center; margin-bottom: 0.5rem; letter-spacing: -0.5px;
+    }
+    .sub-header { text-align:center; color:#475569; font-size:0.92rem; font-weight:300; margin-bottom:1.8rem; letter-spacing:0.3px; }
+
+    .metric-card {
+        background: linear-gradient(145deg, rgba(3,105,161,0.08), rgba(29,78,216,0.05));
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(3,105,161,0.2);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(3,105,161,0.1); }
+
+    .fraud-alert {
+        background: linear-gradient(145deg, rgba(220,38,38,0.08), rgba(185,28,28,0.04));
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(220,38,38,0.2); box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    .success-box {
+        background: linear-gradient(145deg, rgba(22,163,74,0.08), rgba(21,128,61,0.04));
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(22,163,74,0.2); box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    .warning-box {
+        background: linear-gradient(145deg, rgba(217,119,6,0.08), rgba(194,65,12,0.04));
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(217,119,6,0.2); box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    .info-box {
+        background: linear-gradient(145deg, rgba(99,102,241,0.08), rgba(67,56,202,0.04));
+        padding: 1.1rem 1.3rem; border-radius: 12px;
+        border: 1px solid rgba(99,102,241,0.2); box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+
+    .risk-critical { background:linear-gradient(135deg,#fecaca,#fca5a5); color:#7f1d1d; padding:4px 13px; border-radius:20px; font-size:0.76rem; font-weight:700; letter-spacing:0.5px; border:1px solid rgba(220,38,38,0.4); }
+    .risk-high     { background:linear-gradient(135deg,#fee2e2,#fecaca); color:#991b1b; padding:4px 13px; border-radius:20px; font-size:0.76rem; font-weight:700; letter-spacing:0.5px; border:1px solid rgba(220,38,38,0.3); }
+    .risk-medium   { background:linear-gradient(135deg,#fef3c7,#fde68a); color:#92400e; padding:4px 13px; border-radius:20px; font-size:0.76rem; font-weight:700; letter-spacing:0.5px; border:1px solid rgba(217,119,6,0.3); }
+    .risk-low      { background:linear-gradient(135deg,#dcfce7,#bbf7d0); color:#14532d; padding:4px 13px; border-radius:20px; font-size:0.76rem; font-weight:700; letter-spacing:0.5px; border:1px solid rgba(22,163,74,0.3); }
+
+    .wallet-address-full {
+        font-family:'JetBrains Mono',monospace; font-size:0.82rem;
+        background:rgba(3,105,161,0.06); border:1px solid rgba(3,105,161,0.2);
+        border-radius:8px; padding:0.55rem 0.9rem; color:#0369a1;
+        word-break:break-all; letter-spacing:0.3px; display:block; margin:4px 0;
+    }
+    .valid-address   { color:#16a34a; font-size:0.82rem; font-weight:600; }
+    .invalid-address { color:#dc2626; font-size:0.82rem; font-weight:600; }
+
+    .history-pill {
+        display:inline-block; background:rgba(3,105,161,0.1); color:#0369a1;
+        border-radius:20px; padding:3px 12px; font-size:0.73rem;
+        font-family:'JetBrains Mono',monospace; margin:2px;
+        border:1px solid rgba(3,105,161,0.2); cursor:pointer;
+    }
+    .section-divider { height:1px; background:linear-gradient(90deg,transparent,rgba(3,105,161,0.3),transparent); margin:1.5rem 0; border:none; }
+    .sidebar-stat { background:rgba(0,0,0,0.04); border-radius:8px; padding:0.5rem 0.8rem; margin:4px 0; font-size:0.88rem; border:1px solid rgba(0,0,0,0.08); }
+
+    .footer-text { text-align:center; color:#64748b; font-size:0.80rem; padding:2rem 0 1rem; letter-spacing:0.3px; }
+    .footer-text strong { color:#475569; }
+
+    .stDataFrame td { white-space:pre-wrap !important; word-break:break-all !important; }
+    .stDataFrame th { font-family:'Sora',sans-serif !important; font-weight:600 !important; }
+    [data-testid="metric-container"] [data-testid="stMetricValue"] { font-family:'Sora',sans-serif; font-weight:700; }
+    .stTabs [data-baseweb="tab"] { font-family:'Sora',sans-serif; font-weight:600; font-size:0.88rem; }
+    .address-block { font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:#1d4ed8; background:rgba(239,246,255,0.9); border:1px solid rgba(29,78,216,0.2); border-radius:8px; padding:0.7rem 1rem; word-break:break-all; line-height:1.6; }
+
+    /* Toggle button light */
+    .theme-toggle-btn {
+        display:flex; align-items:center; justify-content:center; gap:8px;
+        background:linear-gradient(135deg, rgba(3,105,161,0.1), rgba(124,58,237,0.1));
+        border:1px solid rgba(3,105,161,0.3); border-radius:25px;
+        padding:8px 18px; color:#0369a1; font-family:'Sora',sans-serif;
+        font-size:0.85rem; font-weight:600; cursor:pointer; width:100%;
+        transition:all 0.2s; margin-bottom:8px;
+    }
+    .theme-toggle-btn:hover { background:linear-gradient(135deg, rgba(3,105,161,0.18), rgba(124,58,237,0.15)); transform:translateY(-1px); }
+</style>
+"""
+    st.markdown(css, unsafe_allow_html=True)
+
+
+inject_css(st.session_state.dark_mode)
 
 
 # -----------------------------------------------
 # Helpers — validation
 # -----------------------------------------------
 def is_valid_eth_address(addr: str) -> bool:
-    """Return True if addr looks like a valid Ethereum address."""
     return bool(re.fullmatch(r"0x[0-9a-fA-F]{40}", addr.strip()))
 
 
 def normalise_fraud_score(score: float, score_min: float, score_max: float) -> float:
-    """Convert Isolation-Forest score (lower = worse) to 0–100 (higher = worse)."""
     if score_max == score_min:
         return 50.0
     normalised = (score_max - score) / (score_max - score_min) * 100
@@ -253,7 +308,6 @@ def normalise_fraud_score(score: float, score_min: float, score_max: float) -> f
 
 
 def risk_label(risk_score: float) -> str:
-    """Return a risk label from a 0–100 risk score."""
     if risk_score >= 80:
         return "Critical"
     elif risk_score >= 60:
@@ -273,27 +327,13 @@ def risk_badge(risk_score: float) -> str:
 # Helpers — MLP-style link probability
 # -----------------------------------------------
 def compute_link_probability(emb_a: np.ndarray, emb_b: np.ndarray) -> float:
-    """
-    Improved link-probability estimate using three complementary signals:
-      1. Dot-product similarity (original)
-      2. Cosine similarity
-      3. L2 distance (inverted)
-    All three are combined and passed through a sigmoid.
-    """
-    # 1. Dot product (clipped to avoid overflow)
     dot = float(np.dot(emb_a, emb_b))
     dot = np.clip(dot, -500.0, 500.0)
-
-    # 2. Cosine similarity
     norm_a = np.linalg.norm(emb_a) + 1e-9
     norm_b = np.linalg.norm(emb_b) + 1e-9
     cosine = float(np.dot(emb_a, emb_b) / (norm_a * norm_b))
-
-    # 3. L2 distance (inverted, scaled)
     l2 = float(np.linalg.norm(emb_a - emb_b))
     l2_sim = 1.0 / (1.0 + l2)
-
-    # Weighted combination — tuned heuristically
     combined = 0.5 * dot + 0.3 * cosine * abs(dot) + 0.2 * l2_sim * abs(dot)
     combined = np.clip(combined, -500.0, 500.0)
     return float(1.0 / (1.0 + np.exp(-combined)))
@@ -321,7 +361,6 @@ def create_graph_statistics(edges_df: pd.DataFrame) -> dict:
 # -----------------------------------------------
 @st.cache_data
 def load_data():
-    """Load all pre-trained model outputs.  Returns None values on missing files."""
     required_files = {
         "node_embeddings.npy": "NumPy array of GNN node embeddings",
         "edges.csv": "Transaction edge list (from_id, to_id)",
@@ -362,11 +401,9 @@ def load_data():
             with open("label_encoder.pkl", "rb") as f:
                 le = pickle.load(f)
 
-        # Optional files
         loss_history = None
         try:
             loss_history = np.load("loss_history.npy")
-            logger.info("Loaded loss_history.npy")
         except FileNotFoundError:
             logger.warning("loss_history.npy not found — loss curve will be unavailable.")
 
@@ -374,11 +411,9 @@ def load_data():
         try:
             roc_data = np.load("roc_data.npz")
             fpr, tpr, roc_auc_val = roc_data["fpr"], roc_data["tpr"], float(roc_data["auc"])
-            logger.info(f"Loaded ROC data — AUC = {roc_auc_val:.4f}")
         except FileNotFoundError:
             logger.warning("roc_data.npz not found — ROC curve will be unavailable.")
 
-        # Pre-compute normalised risk scores and add to fraud_df
         s_min = float(fraud_df["fraud_score"].min())
         s_max = float(fraud_df["fraud_score"].max())
         fraud_df["risk_score"] = fraud_df["fraud_score"].apply(
@@ -398,13 +433,6 @@ def load_data():
 # -----------------------------------------------
 # Visualisation helpers
 # -----------------------------------------------
-PLOTLY_TEMPLATE = "plotly_dark"
-PRIMARY_COLOR  = "#00d2ff"
-DANGER_COLOR   = "#ef4444"
-SUCCESS_COLOR  = "#22c55e"
-ACCENT_COLOR   = "#8b5cf6"
-
-
 def plot_loss_curve(loss_history: np.ndarray) -> go.Figure:
     fig = go.Figure()
     epochs = list(range(1, len(loss_history) + 1))
@@ -415,7 +443,7 @@ def plot_loss_curve(loss_history: np.ndarray) -> go.Figure:
             name="Training Loss",
             line=dict(color=PRIMARY_COLOR, width=2.5),
             fill="tozeroy",
-            fillcolor="rgba(0,210,255,0.07)",
+            fillcolor=f"rgba({'0,210,255' if st.session_state.dark_mode else '3,105,161'},0.07)",
         )
     )
     fig.add_annotation(
@@ -444,7 +472,7 @@ def plot_roc_curve(fpr, tpr, auc_score: float) -> go.Figure:
             name=f"ROC Curve (AUC = {auc_score:.3f})",
             line=dict(color=PRIMARY_COLOR, width=2.5),
             fill="tozeroy",
-            fillcolor="rgba(0,210,255,0.08)",
+            fillcolor=f"rgba({'0,210,255' if st.session_state.dark_mode else '3,105,161'},0.08)",
         )
     )
     fig.add_trace(
@@ -467,14 +495,12 @@ def plot_roc_curve(fpr, tpr, auc_score: float) -> go.Figure:
 
 
 def plot_fraud_distribution(fraud_df: pd.DataFrame) -> go.Figure:
-    """Plot risk-score distribution (0–100, higher = more suspicious)."""
     fig = px.histogram(
         fraud_df, x="risk_score", nbins=50,
         title="Risk Score Distribution (0 = safe, 100 = critical)",
         labels={"risk_score": "Risk Score (0–100)", "count": "Number of Wallets"},
         color_discrete_sequence=[DANGER_COLOR],
     )
-    # Add vertical lines for thresholds
     for thresh, label, color in [(35, "Medium", "#f59e0b"), (60, "High", "#ef4444"), (80, "Critical", "#dc2626")]:
         fig.add_vline(x=thresh, line_dash="dot", line_color=color,
                       annotation_text=label, annotation_position="top right",
@@ -492,20 +518,6 @@ def create_network_subgraph(
     layout: str = "spring",
     show_labels: bool = True,
 ) -> go.Figure | None:
-    """
-    Build a rich directed transaction-network graph around `wallet_id`.
-
-    Improvements over v1:
-      - Directional arrows on every edge (go.Scatter with marker mid-arrows)
-      - Separate outgoing / incoming / internal edge colouring
-      - Node colour encodes: centre · fraud-centre · fraud · normal
-      - Node size encodes degree (capped)
-      - Rich hover card: full address, wallet ID, risk level, tx counts
-      - Risk-score-derived border glow width
-      - Multiple layout algorithms selectable
-      - Legend traces for node categories
-    """
-    # ── Collect relevant edges ───────────────────────────────────────────────
     related = edges_df[
         (edges_df["from_id"] == wallet_id) | (edges_df["to_id"] == wallet_id)
     ].head(max_connections)
@@ -523,17 +535,14 @@ def create_network_subgraph(
     )
     fraudulent_ids = set(fraud_risk.keys())
 
-    # ── Build directed graph ─────────────────────────────────────────────────
     G = nx.DiGraph()
     for _, row in related.iterrows():
         src, dst = int(row["from_id"]), int(row["to_id"])
         G.add_edge(src, dst)
 
-    # Degree for sizing
     in_deg  = dict(G.in_degree())
     out_deg = dict(G.out_degree())
 
-    # ── Layout ───────────────────────────────────────────────────────────────
     layout_fns = {
         "spring":    lambda: nx.spring_layout(G, seed=42, k=2.2),
         "kamada":    lambda: nx.kamada_kawai_layout(G),
@@ -542,11 +551,10 @@ def create_network_subgraph(
     }
     pos = layout_fns.get(layout, layout_fns["spring"])()
 
-    # ── Edge traces — outgoing (cyan), incoming (violet), internal (slate) ───
     out_ex, out_ey = [], []
     in_ex,  in_ey  = [], []
     int_ex, int_ey = [], []
-    arrows = []          # annotation-based arrowheads
+    arrows = []
 
     for u, v in G.edges():
         x0, y0 = pos[u]; x1, y1 = pos[v]
@@ -557,7 +565,6 @@ def create_network_subgraph(
         else:
             int_ex += [x0, x1, None]; int_ey += [y0, y1, None]
 
-        # Mid-point arrow annotation
         mx, my = (x0 + x1) / 2, (y0 + y1) / 2
         arrows.append(dict(
             x=x1, y=y1, ax=mx, ay=my,
@@ -565,7 +572,7 @@ def create_network_subgraph(
             showarrow=True,
             arrowhead=2, arrowsize=1.2, arrowwidth=1.2,
             arrowcolor=(
-                "#00d2ff" if u == wallet_id else
+                PRIMARY_COLOR if u == wallet_id else
                 "#a78bfa" if v == wallet_id else
                 "rgba(148,163,184,0.4)"
             ),
@@ -580,21 +587,19 @@ def create_network_subgraph(
         )
 
     traces = [
-        edge_trace(out_ex, out_ey, "rgba(0,210,255,0.55)",   "Outgoing"),
+        edge_trace(out_ex, out_ey, f"rgba({'0,210,255' if st.session_state.dark_mode else '3,105,161'},0.55)", "Outgoing"),
         edge_trace(in_ex,  in_ey,  "rgba(167,139,250,0.55)", "Incoming"),
         edge_trace(int_ex, int_ey, "rgba(148,163,184,0.25)", "Internal"),
     ]
 
-    # ── Node traces — one per category for legend ───────────────────────────
     categories = {
         "center_fraud": {"color": "#fbbf24", "border": "#f59e0b", "size_base": 34, "label": "⭐ Centre (Flagged)"},
         "center":       {"color": "#3b82f6", "border": "#60a5fa", "size_base": 32, "label": "🔵 Centre Wallet"},
         "fraud":        {"color": "#ef4444", "border": "#dc2626", "size_base": 22, "label": "🔴 Flagged Wallet"},
-        "normal":       {"color": "#00d2ff", "border": "#38bdf8", "size_base": 16, "label": "⚪ Normal Wallet"},
+        "normal":       {"color": PRIMARY_COLOR, "border": "#38bdf8", "size_base": 16, "label": "⚪ Normal Wallet"},
     }
 
     cat_nodes: dict[str, list] = {k: [] for k in categories}
-
     for node in G.nodes():
         is_fraud  = node in fraudulent_ids
         is_center = node == wallet_id
@@ -611,8 +616,6 @@ def create_network_subgraph(
         for node in nids:
             x, y = pos[node]
             nx_list.append(x); ny_list.append(y)
-
-            # Full address for hover
             try:
                 addr_str = le.inverse_transform([node])[0]
             except Exception:
@@ -630,7 +633,6 @@ def create_network_subgraph(
                 f"<br>Out-degree: {od_deg}  In-degree: {id_deg}"
                 + (" <b>⭐ CENTRE</b>" if node == wallet_id else "")
             )
-            # Size scales with sqrt of total degree, capped
             deg_size = cfg["size_base"] + min(int((id_deg + od_deg) ** 0.5) * 2, 14)
             size_list.append(deg_size)
             sym_list.append("star" if node == wallet_id else "circle")
@@ -646,7 +648,7 @@ def create_network_subgraph(
                 for n in nids
             ],
             textposition="top center",
-            textfont=dict(size=8, color="#94a3b8", family="JetBrains Mono"),
+            textfont=dict(size=8, color=THEME["text_muted"], family="JetBrains Mono"),
             marker=dict(
                 size=size_list,
                 color=cfg["color"],
@@ -657,27 +659,26 @@ def create_network_subgraph(
             showlegend=True,
         ))
 
-    # ── Assemble figure ──────────────────────────────────────────────────────
     fig = go.Figure(data=traces)
     fig.update_layout(
         annotations=arrows,
         title=dict(
             text=f"Transaction Network — Wallet {wallet_id}",
-            font=dict(size=13, color="#94a3b8", family="Sora"),
+            font=dict(size=13, color=THEME["text_muted"], family="Sora"),
         ),
         legend=dict(
             orientation="h",
             yanchor="bottom", y=1.02,
             xanchor="left", x=0,
-            font=dict(size=11, color="#94a3b8"),
-            bgcolor="rgba(15,23,42,0.6)",
-            bordercolor="rgba(255,255,255,0.08)",
+            font=dict(size=11, color=THEME["text_muted"]),
+            bgcolor="rgba(255,255,255,0.05)" if st.session_state.dark_mode else "rgba(255,255,255,0.85)",
+            bordercolor="rgba(255,255,255,0.08)" if st.session_state.dark_mode else "rgba(0,0,0,0.1)",
             borderwidth=1,
         ),
         hovermode="closest",
         template=PLOTLY_TEMPLATE,
-        paper_bgcolor="rgba(15,23,42,0.0)",
-        plot_bgcolor="rgba(15,23,42,0.0)",
+        paper_bgcolor=THEME["bg_main"],
+        plot_bgcolor=THEME["bg_plot"],
         xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
         height=600,
@@ -692,8 +693,6 @@ def create_network_subgraph(
 embeddings, edges, fraud_df, le, loss_history, (fpr, tpr, roc_auc_val) = load_data()
 stats = create_graph_statistics(edges)
 WALLET_SET = set(le.classes_)
-
-# Fraud ID set for fast lookup
 FRAUD_IDS: set = set(fraud_df["wallet_id"].tolist()) if "wallet_id" in fraud_df.columns else set()
 
 
@@ -718,7 +717,15 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
-    st.markdown('<hr style="border-color:rgba(255,255,255,0.07); margin:0.5rem 0 1rem;">', unsafe_allow_html=True)
+
+    # ── Light / Dark Mode Toggle ──────────────────────────────────────────
+    mode_icon  = "☀️" if st.session_state.dark_mode else "🌙"
+    mode_label = "Switch to Light Mode" if st.session_state.dark_mode else "Switch to Dark Mode"
+    if st.button(f"{mode_icon}  {mode_label}", use_container_width=True, key="theme_toggle"):
+        st.session_state.dark_mode = not st.session_state.dark_mode
+        st.rerun()
+
+    st.markdown('<hr style="border-color:rgba(128,128,128,0.2); margin:0.5rem 0 1rem;">', unsafe_allow_html=True)
 
     section = st.radio(
         "Navigate",
@@ -732,7 +739,7 @@ with st.sidebar:
         ],
     )
 
-    st.markdown('<hr style="border-color:rgba(255,255,255,0.07); margin:1rem 0;">', unsafe_allow_html=True)
+    st.markdown('<hr style="border-color:rgba(128,128,128,0.2); margin:1rem 0;">', unsafe_allow_html=True)
     st.markdown("**📌 Quick Stats**")
     st.metric("Total Wallets", f"{embeddings.shape[0]:,}")
     st.metric("Total Transactions", f"{stats['total_transactions']:,}")
@@ -740,7 +747,7 @@ with st.sidebar:
     if roc_auc_val is not None:
         st.metric("ROC-AUC Score", f"{roc_auc_val:.4f}")
 
-    st.markdown('<hr style="border-color:rgba(255,255,255,0.07); margin:1rem 0;">', unsafe_allow_html=True)
+    st.markdown('<hr style="border-color:rgba(128,128,128,0.2); margin:1rem 0;">', unsafe_allow_html=True)
     st.info(
         "**Project:** Transaction Link Prediction in Blockchain using GNN\n\n"
         "**Model:** GraphSAGE\n\n"
@@ -877,7 +884,6 @@ elif "📊 Graph Analytics" in section:
 
     st.markdown("---")
 
-    # Sample transactions with search
     st.markdown("### 📋 Transaction Explorer")
     col1, col2, col3 = st.columns([3, 1, 1])
     with col1:
@@ -899,7 +905,6 @@ elif "📊 Graph Analytics" in section:
         except ValueError:
             st.error("Please enter a numeric wallet ID.")
 
-    # Enrich display_edges with full wallet addresses if label encoder available
     display_edges_show = display_edges.head(num_rows).copy()
     try:
         display_edges_show["from_address"] = le.inverse_transform(display_edges_show["from_id"].astype(int))
@@ -947,7 +952,6 @@ elif "🔮 Link Prediction" in section:
     )
     st.markdown("---")
 
-    # Search history quick-select
     if st.session_state.search_history:
         st.markdown("**Recent lookups:**")
         history_html = " ".join(
@@ -959,7 +963,6 @@ elif "🔮 Link Prediction" in section:
 
     tab1, tab2 = st.tabs(["🔤 Manual Input", "🎲 Random Prediction"])
 
-    # --- Manual Input ---
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
@@ -970,20 +973,11 @@ elif "🔮 Link Prediction" in section:
             )
             if wallet_a:
                 if not is_valid_eth_address(wallet_a):
-                    st.markdown(
-                        '<p class="invalid-address">⚠ Invalid format — must be 0x followed by 40 hex characters</p>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown('<p class="invalid-address">⚠ Invalid format — must be 0x followed by 40 hex characters</p>', unsafe_allow_html=True)
                 elif wallet_a not in WALLET_SET:
-                    st.markdown(
-                        '<p class="invalid-address">⚠ Address not found in this dataset</p>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown('<p class="invalid-address">⚠ Address not found in this dataset</p>', unsafe_allow_html=True)
                 else:
-                    st.markdown(
-                        '<p class="valid-address">✔ Valid address found in dataset</p>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown('<p class="valid-address">✔ Valid address found in dataset</p>', unsafe_allow_html=True)
 
         with col2:
             wallet_b = st.text_input(
@@ -993,24 +987,13 @@ elif "🔮 Link Prediction" in section:
             )
             if wallet_b:
                 if not is_valid_eth_address(wallet_b):
-                    st.markdown(
-                        '<p class="invalid-address">⚠ Invalid format — must be 0x followed by 40 hex characters</p>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown('<p class="invalid-address">⚠ Invalid format — must be 0x followed by 40 hex characters</p>', unsafe_allow_html=True)
                 elif wallet_b not in WALLET_SET:
-                    st.markdown(
-                        '<p class="invalid-address">⚠ Address not found in this dataset</p>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown('<p class="invalid-address">⚠ Address not found in this dataset</p>', unsafe_allow_html=True)
                 else:
-                    st.markdown(
-                        '<p class="valid-address">✔ Valid address found in dataset</p>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown('<p class="valid-address">✔ Valid address found in dataset</p>', unsafe_allow_html=True)
 
-        predict_btn = st.button(
-            "🔮 Predict Transaction Probability", type="primary", use_container_width=True
-        )
+        predict_btn = st.button("🔮 Predict Transaction Probability", type="primary", use_container_width=True)
 
         if predict_btn:
             errors = []
@@ -1039,7 +1022,6 @@ elif "🔮 Link Prediction" in section:
                 id_b = int(le.transform([wallet_b])[0])
                 probability = compute_link_probability(embeddings[id_a], embeddings[id_b])
 
-                # Save to history
                 for addr in [wallet_a, wallet_b]:
                     if addr not in st.session_state.search_history:
                         st.session_state.search_history.append(addr)
@@ -1049,11 +1031,7 @@ elif "🔮 Link Prediction" in section:
                 with col2:
                     st.markdown('<div class="success-box">', unsafe_allow_html=True)
                     st.markdown("### 📊 Prediction Result")
-                    st.metric(
-                        "Transaction Probability",
-                        f"{probability:.4f}",
-                        delta=f"{probability*100:.1f}%",
-                    )
+                    st.metric("Transaction Probability", f"{probability:.4f}", delta=f"{probability*100:.1f}%")
                     if probability > 0.7:
                         st.success("🟢 **High likelihood** of future transaction")
                     elif probability > 0.4:
@@ -1087,13 +1065,10 @@ elif "🔮 Link Prediction" in section:
 
                     existing = edges[(edges["from_id"] == id_a) & (edges["to_id"] == id_b)]
                     if len(existing) > 0:
-                        st.warning(
-                            f"⚠️ **{len(existing)} historical transaction(s)** already exist between these wallets"
-                        )
+                        st.warning(f"⚠️ **{len(existing)} historical transaction(s)** already exist between these wallets")
                     else:
                         st.info("ℹ️ No prior transactions between these wallets")
 
-                # Export result
                 result_df = pd.DataFrame(
                     [{"Sender": wallet_a, "Receiver": wallet_b,
                       "Probability": round(probability, 6),
@@ -1107,7 +1082,6 @@ elif "🔮 Link Prediction" in section:
                     mime="text/csv",
                 )
 
-    # --- Random Predictions ---
     with tab2:
         st.markdown("### 🎲 Random Wallet Pair Prediction")
         num_predictions = st.slider("Number of random predictions", 5, 30, 10)
@@ -1120,8 +1094,7 @@ elif "🔮 Link Prediction" in section:
                 addr_a = le.inverse_transform([ia])[0]
                 addr_b = le.inverse_transform([ib])[0]
                 rows.append({
-                    "Sender": addr_a,
-                    "Receiver": addr_b,
+                    "Sender": addr_a, "Receiver": addr_b,
                     "Probability": round(prob, 4),
                     "Likelihood": "High" if prob > 0.7 else ("Medium" if prob > 0.4 else "Low"),
                     "Sender Fraud": "🚨" if ia in FRAUD_IDS else "✅",
@@ -1130,16 +1103,13 @@ elif "🔮 Link Prediction" in section:
 
             df_pred = pd.DataFrame(rows).sort_values("Probability", ascending=False)
             st.dataframe(
-                df_pred,
-                use_container_width=True,
-                height=420,
+                df_pred, use_container_width=True, height=420,
                 column_config={
                     "Sender":   st.column_config.TextColumn("Sender Address",   width="large"),
                     "Receiver": st.column_config.TextColumn("Receiver Address", width="large"),
                     "Probability": st.column_config.NumberColumn("Probability", format="%.4f"),
                 },
             )
-
             st.download_button(
                 "⬇️ Export All Predictions (CSV)",
                 df_pred.to_csv(index=False),
@@ -1162,7 +1132,6 @@ elif "🚨 Fraud Detection" in section:
     )
     st.markdown("---")
 
-    # Summary metrics
     col1, col2, col3, col4 = st.columns(4)
     critical_count = len(fraud_df[fraud_df["risk_level"] == "Critical"])
     high_count = len(fraud_df[fraud_df["risk_level"] == "High"])
@@ -1179,15 +1148,11 @@ elif "🚨 Fraud Detection" in section:
         st.metric("Detection Rate", f"{pct:.2f}%")
 
     st.markdown("---")
-
-    # Risk distribution chart
     st.markdown("### 📊 Risk Score Distribution")
     fig = plot_fraud_distribution(fraud_df)
     st.plotly_chart(fig, use_container_width=True)
 
     st.markdown("---")
-
-    # Filter controls
     st.markdown("### 🔍 Suspicious Wallet Explorer")
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
@@ -1210,7 +1175,6 @@ elif "🚨 Fraud Detection" in section:
     )
 
     if "wallet_id" in filtered.columns:
-        # Add transaction counts
         tx_rows = []
         for wid in filtered["wallet_id"]:
             sent = len(edges[edges["from_id"] == wid])
@@ -1219,7 +1183,6 @@ elif "🚨 Fraud Detection" in section:
         tx_df = pd.DataFrame(tx_rows)
         filtered = pd.concat([filtered.reset_index(drop=True), tx_df], axis=1)
 
-    # Build display table with badge column
     display_cols = {}
     if "wallet_address" in filtered.columns:
         display_cols["wallet_address"] = "Wallet Address"
@@ -1234,7 +1197,6 @@ elif "🚨 Fraud Detection" in section:
 
     disp = filtered[[c for c in display_cols if c in filtered.columns]].rename(columns=display_cols)
 
-    # Build column_config so wallet address column renders fully
     col_cfg = {}
     if "Wallet Address" in disp.columns:
         col_cfg["Wallet Address"] = st.column_config.TextColumn("Wallet Address", width="large")
@@ -1242,8 +1204,6 @@ elif "🚨 Fraud Detection" in section:
         col_cfg["Risk Score (0–100)"] = st.column_config.NumberColumn("Risk Score (0–100)", format="%.1f")
 
     st.dataframe(disp, use_container_width=True, height=420, column_config=col_cfg)
-
-    # Export
     st.download_button(
         "⬇️ Export Fraud Report (CSV)",
         disp.to_csv(index=False),
@@ -1252,8 +1212,6 @@ elif "🚨 Fraud Detection" in section:
     )
 
     st.markdown("---")
-
-    # ── Wallet Investigation ──────────────────────────────────────────────────
     st.markdown("### 🕵️ Investigate Specific Wallet")
 
     inv_col1, inv_col2, inv_col3 = st.columns([3, 1, 1])
@@ -1279,14 +1237,11 @@ elif "🚨 Fraud Detection" in section:
 
     if investigate_btn:
         wid = int(wallet_id_input)
-
-        # ── Resolve address ──────────────────────────────────────────────
         try:
             addr = le.inverse_transform([wid])[0]
         except Exception:
             addr = None
 
-        # ── Data lookups ─────────────────────────────────────────────────
         info       = fraud_df[fraud_df["wallet_id"] == wid]
         sent_txs   = edges[edges["from_id"] == wid]
         recv_txs   = edges[edges["to_id"]   == wid]
@@ -1296,128 +1251,93 @@ elif "🚨 Fraud Detection" in section:
         recv_count = len(recv_txs)
         total_txs  = sent_count + recv_count
 
-        unique_receivers  = sent_txs["to_id"].nunique()
-        unique_senders    = recv_txs["from_id"].nunique()
-        unique_counterparties = len(
-            set(sent_txs["to_id"].tolist()) | set(recv_txs["from_id"].tolist())
-        )
+        unique_receivers      = sent_txs["to_id"].nunique()
+        unique_senders        = recv_txs["from_id"].nunique()
+        unique_counterparties = len(set(sent_txs["to_id"].tolist()) | set(recv_txs["from_id"].tolist()))
 
         is_flagged = len(info) > 0
-        rs  = float(info.iloc[0]["risk_score"])   if is_flagged else 0.0
-        rl  = info.iloc[0]["risk_level"]           if is_flagged else "Clean"
-        raw = float(info.iloc[0]["fraud_score"])   if is_flagged else None
+        rs  = float(info.iloc[0]["risk_score"])  if is_flagged else 0.0
+        rl  = info.iloc[0]["risk_level"]          if is_flagged else "Clean"
+        raw = float(info.iloc[0]["fraud_score"])  if is_flagged else None
 
-        # Embedding-based stats
         emb = embeddings[wid]
         emb_norm  = float(np.linalg.norm(emb))
         emb_mean  = float(np.mean(emb))
         emb_std   = float(np.std(emb))
 
-        # Peer-comparison: how unusual is this wallet vs all flagged wallets?
         if is_flagged:
-            rank_among_flagged = int(
-                (fraud_df["risk_score"] > rs).sum() + 1
-            )
+            rank_among_flagged = int((fraud_df["risk_score"] > rs).sum() + 1)
             pct_rank = round((1 - (rank_among_flagged - 1) / max(len(fraud_df), 1)) * 100, 1)
         else:
             rank_among_flagged = None
             pct_rank = None
 
-        # Counterparty fraud exposure
-        all_counterparty_ids = set(sent_txs["to_id"].tolist()) | set(recv_txs["from_id"].tolist())
+        all_counterparty_ids  = set(sent_txs["to_id"].tolist()) | set(recv_txs["from_id"].tolist())
         flagged_counterparties = all_counterparty_ids & FRAUD_IDS
         fraud_exposure_pct = (
             round(len(flagged_counterparties) / max(len(all_counterparty_ids), 1) * 100, 1)
             if all_counterparty_ids else 0.0
         )
-
-        # Send/receive ratio (behaviour pattern)
         tx_ratio = (sent_count / max(recv_count, 1))
 
-        # ── Header: address + status banner ─────────────────────────────
         st.markdown("---")
         if addr:
-            st.markdown(
-                f'<span class="wallet-address-full">📍 {addr}</span>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<span class="wallet-address-full">📍 {addr}</span>', unsafe_allow_html=True)
 
         if is_flagged:
-            badge_color = {"Critical": "#dc2626", "High": "#ef4444",
-                           "Medium": "#d97706", "Low": "#16a34a"}.get(rl, "#6366f1")
+            badge_color = {"Critical": "#dc2626", "High": "#ef4444", "Medium": "#d97706", "Low": "#16a34a"}.get(rl, "#6366f1")
             st.markdown(
-                f"""
-                <div style="background:linear-gradient(135deg,{badge_color}22,{badge_color}11);
-                            border:1px solid {badge_color}55; border-radius:12px;
-                            padding:0.9rem 1.2rem; margin:0.8rem 0;">
+                f"""<div style="background:linear-gradient(135deg,{badge_color}22,{badge_color}11);
+                    border:1px solid {badge_color}55; border-radius:12px; padding:0.9rem 1.2rem; margin:0.8rem 0;">
                     <span style="font-size:1.15rem; font-weight:700; color:{badge_color};">
                         ⚠️ FLAGGED — {rl} Risk &nbsp;
                         <span style="font-size:0.85rem; font-weight:400; color:#94a3b8;">
                             Risk Score: {rs:.1f} / 100
-                            {"&nbsp;·&nbsp; Top " + str(rank_among_flagged) + " of " + str(len(fraud_df)) + " flagged wallets"
-                             if rank_among_flagged else ""}
+                            {"&nbsp;·&nbsp; Top " + str(rank_among_flagged) + " of " + str(len(fraud_df)) + " flagged wallets" if rank_among_flagged else ""}
                         </span>
                     </span>
-                </div>
-                """,
+                </div>""",
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
-                """
-                <div style="background:linear-gradient(135deg,#16a34a22,#16a34a11);
-                            border:1px solid #16a34a44; border-radius:12px;
-                            padding:0.9rem 1.2rem; margin:0.8rem 0;">
-                    <span style="font-size:1.1rem; font-weight:700; color:#4ade80;">
-                        ✅ CLEAN — No fraud flags detected
-                    </span>
-                </div>
-                """,
+                """<div style="background:linear-gradient(135deg,#16a34a22,#16a34a11);
+                    border:1px solid #16a34a44; border-radius:12px; padding:0.9rem 1.2rem; margin:0.8rem 0;">
+                    <span style="font-size:1.1rem; font-weight:700; color:#4ade80;">✅ CLEAN — No fraud flags detected</span>
+                </div>""",
                 unsafe_allow_html=True,
             )
 
-        # ── Row 1: 5 top-level KPI metrics ──────────────────────────────
         m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("Wallet ID",            f"#{wid:,}")
-        m2.metric("Txs Sent",             f"{sent_count:,}")
-        m3.metric("Txs Received",         f"{recv_count:,}")
-        m4.metric("Unique Counterparties",f"{unique_counterparties:,}")
-        m5.metric("Fraud Exposure",       f"{fraud_exposure_pct}%",
+        m1.metric("Wallet ID",             f"#{wid:,}")
+        m2.metric("Txs Sent",              f"{sent_count:,}")
+        m3.metric("Txs Received",          f"{recv_count:,}")
+        m4.metric("Unique Counterparties", f"{unique_counterparties:,}")
+        m5.metric("Fraud Exposure",        f"{fraud_exposure_pct}%",
                   delta=("⚠️ High" if fraud_exposure_pct > 30 else ("🟡 Moderate" if fraud_exposure_pct > 10 else "✅ Low")),
                   delta_color="off")
 
         st.markdown("")
 
-        # ── Row 2: three analysis tabs ───────────────────────────────────
         tab_risk, tab_txn, tab_network, tab_embedding = st.tabs([
             "🔴 Risk Profile", "📋 Transaction Details", "🌐 Network Context", "🧬 Embedding Analysis"
         ])
 
-        # ── Tab: Risk Profile ────────────────────────────────────────────
         with tab_risk:
             rc1, rc2 = st.columns([1, 1])
             with rc1:
                 st.markdown("#### Risk Breakdown")
                 if is_flagged:
-                    # Risk score gauge (HTML progress bar)
-                    gauge_color = {"Critical": "#dc2626", "High": "#ef4444",
-                                   "Medium": "#f59e0b", "Low": "#22c55e"}.get(rl, "#6366f1")
+                    gauge_color = {"Critical": "#dc2626", "High": "#ef4444", "Medium": "#f59e0b", "Low": "#22c55e"}.get(rl, "#6366f1")
                     st.markdown(
-                        f"""
-                        <div style="margin:0.5rem 0 1rem;">
-                            <div style="display:flex; justify-content:space-between;
-                                        font-size:0.8rem; color:#94a3b8; margin-bottom:4px;">
+                        f"""<div style="margin:0.5rem 0 1rem;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:#94a3b8; margin-bottom:4px;">
                                 <span>Risk Score</span><span>{rs:.1f} / 100</span>
                             </div>
-                            <div style="background:rgba(255,255,255,0.06); border-radius:999px;
-                                        height:14px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);">
-                                <div style="width:{rs}%; height:100%;
-                                            background:linear-gradient(90deg,{gauge_color}99,{gauge_color});
-                                            border-radius:999px; transition:width 0.4s;">
-                                </div>
+                            <div style="background:rgba(255,255,255,0.06); border-radius:999px; height:14px; overflow:hidden; border:1px solid rgba(255,255,255,0.08);">
+                                <div style="width:{rs}%; height:100%; background:linear-gradient(90deg,{gauge_color}99,{gauge_color}); border-radius:999px;"></div>
                             </div>
-                        </div>
-                        """,
+                        </div>""",
                         unsafe_allow_html=True,
                     )
                     st.metric("Raw Isolation Forest Score", f"{raw:.6f}" if raw is not None else "N/A")
@@ -1438,18 +1358,14 @@ elif "🚨 Fraud Detection" in section:
                     signals.append(("✅", "Balanced send/receive", f"Ratio: {tx_ratio:.2f}"))
 
                 if fraud_exposure_pct > 30:
-                    signals.append(("🚩", "High fraud-network exposure",
-                                    f"{len(flagged_counterparties)} of {len(all_counterparty_ids)} counterparties are flagged ({fraud_exposure_pct}%)"))
+                    signals.append(("🚩", "High fraud-network exposure", f"{len(flagged_counterparties)} of {len(all_counterparty_ids)} counterparties are flagged ({fraud_exposure_pct}%)"))
                 elif fraud_exposure_pct > 10:
-                    signals.append(("⚠️", "Moderate fraud-network exposure",
-                                    f"{fraud_exposure_pct}% of counterparties are flagged"))
+                    signals.append(("⚠️", "Moderate fraud-network exposure", f"{fraud_exposure_pct}% of counterparties are flagged"))
                 else:
-                    signals.append(("✅", "Low fraud-network exposure",
-                                    f"Only {fraud_exposure_pct}% of counterparties are flagged"))
+                    signals.append(("✅", "Low fraud-network exposure", f"Only {fraud_exposure_pct}% of counterparties are flagged"))
 
                 if unique_receivers > 50:
-                    signals.append(("🚩", "Wide receiver spread",
-                                    f"Sent to {unique_receivers:,} unique wallets — fan-out pattern"))
+                    signals.append(("🚩", "Wide receiver spread", f"Sent to {unique_receivers:,} unique wallets — fan-out pattern"))
                 elif unique_receivers > 10:
                     signals.append(("⚠️", "Moderate receiver spread", f"{unique_receivers} unique receivers"))
                 else:
@@ -1460,21 +1376,16 @@ elif "🚨 Fraud Detection" in section:
 
                 for icon, label, detail in signals:
                     st.markdown(
-                        f"""
-                        <div style="background:rgba(255,255,255,0.03); border-radius:8px;
-                                    padding:0.55rem 0.8rem; margin:5px 0;
-                                    border-left:3px solid {'#ef4444' if icon=='🚩' else '#f59e0b' if icon=='⚠️' else '#22c55e'};">
+                        f"""<div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:0.55rem 0.8rem; margin:5px 0;
+                                border-left:3px solid {'#ef4444' if icon=='🚩' else '#f59e0b' if icon=='⚠️' else '#22c55e'};">
                             <span style="font-size:0.88rem; font-weight:600;">{icon} {label}</span><br>
                             <span style="font-size:0.78rem; color:#94a3b8;">{detail}</span>
-                        </div>
-                        """,
+                        </div>""",
                         unsafe_allow_html=True,
                     )
 
-        # ── Tab: Transaction Details ─────────────────────────────────────
         with tab_txn:
             tc1, tc2 = st.columns(2)
-
             with tc1:
                 st.markdown(f"#### 📤 Sent Transactions ({sent_count:,})")
                 if sent_count > 0:
@@ -1483,19 +1394,10 @@ elif "🚨 Fraud Detection" in section:
                         sent_display["to_address"] = le.inverse_transform(sent_display["to_id"].astype(int))
                     except Exception:
                         pass
-                    # Flag counterparties
-                    sent_display["counterparty_fraud"] = sent_display["to_id"].apply(
-                        lambda x: "🚨" if x in FRAUD_IDS else "✅"
-                    )
-                    st.dataframe(
-                        sent_display,
-                        use_container_width=True,
-                        height=300,
-                        column_config={
-                            "to_address": st.column_config.TextColumn("To Address", width="large"),
-                            "counterparty_fraud": st.column_config.TextColumn("Fraud Flag", width="small"),
-                        },
-                    )
+                    sent_display["counterparty_fraud"] = sent_display["to_id"].apply(lambda x: "🚨" if x in FRAUD_IDS else "✅")
+                    st.dataframe(sent_display, use_container_width=True, height=300,
+                                 column_config={"to_address": st.column_config.TextColumn("To Address", width="large"),
+                                                "counterparty_fraud": st.column_config.TextColumn("Fraud Flag", width="small")})
                 else:
                     st.info("No outgoing transactions found.")
 
@@ -1507,22 +1409,13 @@ elif "🚨 Fraud Detection" in section:
                         recv_display["from_address"] = le.inverse_transform(recv_display["from_id"].astype(int))
                     except Exception:
                         pass
-                    recv_display["counterparty_fraud"] = recv_display["from_id"].apply(
-                        lambda x: "🚨" if x in FRAUD_IDS else "✅"
-                    )
-                    st.dataframe(
-                        recv_display,
-                        use_container_width=True,
-                        height=300,
-                        column_config={
-                            "from_address": st.column_config.TextColumn("From Address", width="large"),
-                            "counterparty_fraud": st.column_config.TextColumn("Fraud Flag", width="small"),
-                        },
-                    )
+                    recv_display["counterparty_fraud"] = recv_display["from_id"].apply(lambda x: "🚨" if x in FRAUD_IDS else "✅")
+                    st.dataframe(recv_display, use_container_width=True, height=300,
+                                 column_config={"from_address": st.column_config.TextColumn("From Address", width="large"),
+                                                "counterparty_fraud": st.column_config.TextColumn("Fraud Flag", width="small")})
                 else:
                     st.info("No incoming transactions found.")
 
-            # Export full transaction history
             if total_txs > 0:
                 st.markdown("---")
                 export_txs = all_txs.copy()
@@ -1539,7 +1432,6 @@ elif "🚨 Fraud Detection" in section:
                     use_container_width=True,
                 )
 
-        # ── Tab: Network Context ─────────────────────────────────────────
         with tab_network:
             nc1, nc2 = st.columns([2, 1])
             with nc1:
@@ -1553,38 +1445,28 @@ elif "🚨 Fraud Detection" in section:
                         except Exception:
                             f_addr = f"ID {fid}"
                         direction = []
-                        if fid in set(sent_txs["to_id"]):
-                            direction.append("Sent To")
-                        if fid in set(recv_txs["from_id"]):
-                            direction.append("Received From")
+                        if fid in set(sent_txs["to_id"]):   direction.append("Sent To")
+                        if fid in set(recv_txs["from_id"]): direction.append("Received From")
                         fp_rows.append({
                             "Wallet Address": f_addr,
-                            "Wallet ID": int(fid),
-                            "Risk Level": fi.iloc[0]["risk_level"] if len(fi) > 0 else "Unknown",
-                            "Risk Score": round(float(fi.iloc[0]["risk_score"]), 1) if len(fi) > 0 else 0,
-                            "Relationship": " & ".join(direction),
+                            "Wallet ID":      int(fid),
+                            "Risk Level":     fi.iloc[0]["risk_level"]  if len(fi) > 0 else "Unknown",
+                            "Risk Score":     round(float(fi.iloc[0]["risk_score"]), 1) if len(fi) > 0 else 0,
+                            "Relationship":   " & ".join(direction),
                         })
                     fp_df = pd.DataFrame(fp_rows).sort_values("Risk Score", ascending=False)
-                    st.dataframe(
-                        fp_df,
-                        use_container_width=True,
-                        height=280,
-                        column_config={
-                            "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
-                            "Risk Score": st.column_config.NumberColumn("Risk Score", format="%.1f"),
-                        },
-                    )
+                    st.dataframe(fp_df, use_container_width=True, height=280,
+                                 column_config={"Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
+                                                "Risk Score": st.column_config.NumberColumn("Risk Score", format="%.1f")})
                 else:
                     st.success("✅ No flagged wallets found among this wallet's direct counterparties.")
 
             with nc2:
                 st.markdown("#### Network Summary")
-                st.metric("Total Counterparties", f"{len(all_counterparty_ids):,}")
-                st.metric("Flagged Counterparties", f"{len(flagged_counterparties):,}",
-                          delta_color="inverse",
-                          delta=f"{fraud_exposure_pct}% exposure")
-                st.metric("Unique Receivers", f"{unique_receivers:,}")
-                st.metric("Unique Senders", f"{unique_senders:,}")
+                st.metric("Total Counterparties",  f"{len(all_counterparty_ids):,}")
+                st.metric("Flagged Counterparties", f"{len(flagged_counterparties):,}", delta_color="inverse", delta=f"{fraud_exposure_pct}% exposure")
+                st.metric("Unique Receivers",       f"{unique_receivers:,}")
+                st.metric("Unique Senders",         f"{unique_senders:,}")
                 if len(flagged_counterparties) > 0:
                     st.download_button(
                         "⬇️ Export Flagged Counterparties",
@@ -1594,7 +1476,6 @@ elif "🚨 Fraud Detection" in section:
                         use_container_width=True,
                     )
 
-        # ── Tab: Embedding Analysis ──────────────────────────────────────
         with tab_embedding:
             ec1, ec2 = st.columns([1, 1])
             with ec1:
@@ -1604,15 +1485,11 @@ elif "🚨 Fraud Detection" in section:
                 st.metric("Mean Value",f"{emb_mean:.4f}")
                 st.metric("Std Dev",   f"{emb_std:.4f}")
 
-                # Top-5 most similar wallets by cosine similarity
                 st.markdown("#### 🔗 Top 5 Similar Wallets (Cosine)")
                 emb_norm_val = emb_norm + 1e-9
-                # Sample 2000 random wallets for speed
-                sample_ids = np.random.choice(embeddings.shape[0], min(2000, embeddings.shape[0]), replace=False)
+                sample_ids  = np.random.choice(embeddings.shape[0], min(2000, embeddings.shape[0]), replace=False)
                 sample_embs = embeddings[sample_ids]
-                cosines = sample_embs @ emb / (
-                    np.linalg.norm(sample_embs, axis=1) * emb_norm_val + 1e-9
-                )
+                cosines = sample_embs @ emb / (np.linalg.norm(sample_embs, axis=1) * emb_norm_val + 1e-9)
                 top5_local = np.argsort(cosines)[::-1][1:6]
                 top5_ids   = sample_ids[top5_local]
                 sim_rows   = []
@@ -1628,36 +1505,21 @@ elif "🚨 Fraud Detection" in section:
                         "Cosine Similarity": round(float(cosines[local_i]), 4),
                         "Risk Level":        sim_info.iloc[0]["risk_level"] if len(sim_info) > 0 else "Clean",
                     })
-                st.dataframe(
-                    pd.DataFrame(sim_rows),
-                    use_container_width=True,
-                    column_config={
-                        "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
-                        "Cosine Similarity": st.column_config.NumberColumn("Cosine Sim", format="%.4f"),
-                    },
-                    hide_index=True,
-                )
+                st.dataframe(pd.DataFrame(sim_rows), use_container_width=True,
+                             column_config={"Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
+                                            "Cosine Similarity": st.column_config.NumberColumn("Cosine Sim", format="%.4f")},
+                             hide_index=True)
 
             with ec2:
                 st.markdown("#### Embedding Heatmap (first 64 dims)")
                 heatmap_vals = emb[:64].reshape(8, 8)
-                fig_emb = go.Figure(go.Heatmap(
-                    z=heatmap_vals,
-                    colorscale="RdBu",
-                    zmid=0,
-                    showscale=True,
-                    hoverongaps=False,
-                ))
-                fig_emb.update_layout(
-                    template=PLOTLY_TEMPLATE,
-                    height=320,
-                    margin=dict(t=10, b=10, l=10, r=10),
-                    xaxis=dict(showticklabels=False),
-                    yaxis=dict(showticklabels=False),
-                )
+                fig_emb = go.Figure(go.Heatmap(z=heatmap_vals, colorscale="RdBu", zmid=0, showscale=True, hoverongaps=False))
+                fig_emb.update_layout(template=PLOTLY_TEMPLATE, height=320,
+                                      margin=dict(t=10, b=10, l=10, r=10),
+                                      xaxis=dict(showticklabels=False),
+                                      yaxis=dict(showticklabels=False))
                 st.plotly_chart(fig_emb, use_container_width=True)
 
-        # ── Export full investigation report ─────────────────────────────
         st.markdown("---")
         report_data = {
             "wallet_id":              [wid],
@@ -1701,7 +1563,6 @@ elif "📈 Model Performance" in section:
     st.markdown("---")
 
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("### 📉 Training Loss Curve")
         if loss_history is not None:
@@ -1711,8 +1572,8 @@ elif "📈 Model Performance" in section:
                 reduction = (loss_history[0] - loss_history[-1]) / loss_history[0] * 100
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Initial Loss", f"{loss_history[0]:.4f}")
-                c2.metric("Final Loss", f"{loss_history[-1]:.4f}")
-                c3.metric("Reduction", f"{reduction:.1f}%")
+                c2.metric("Final Loss",   f"{loss_history[-1]:.4f}")
+                c3.metric("Reduction",    f"{reduction:.1f}%")
                 st.write(f"Total epochs: **{len(loss_history)}**")
         else:
             st.markdown('<div class="info-box">', unsafe_allow_html=True)
@@ -1734,10 +1595,7 @@ elif "📈 Model Performance" in section:
                     st.warning("🟡 Moderate — AUC > 0.6")
                 else:
                     st.error("🔴 Poor — AUC ≤ 0.6")
-                st.write(
-                    f"The model distinguishes linked from non-linked wallet pairs with "
-                    f"**{roc_auc_val*100:.1f}%** accuracy."
-                )
+                st.write(f"The model distinguishes linked from non-linked wallet pairs with **{roc_auc_val*100:.1f}%** accuracy.")
         else:
             st.markdown('<div class="info-box">', unsafe_allow_html=True)
             st.info("ROC data not available. Save `roc_data.npz` after evaluation.")
@@ -1771,20 +1629,16 @@ elif "📈 Model Performance" in section:
 
     st.markdown("---")
     st.markdown("### 📊 Evaluation Summary")
-    metrics_df = pd.DataFrame(
-        {
-            "Metric": ["ROC-AUC", "Model Type", "Embedding Dim", "Total Nodes", "Total Edges", "Decoder"],
-            "Value": [
-                f"{roc_auc_val:.4f}" if roc_auc_val is not None else "N/A",
-                "GraphSAGE",
-                "64",
-                f"{embeddings.shape[0]:,}",
-                f"{len(edges):,}",
-                "Multi-signal (dot + cosine + L2)",
-            ],
-            "Status": ["✅", "✅", "✅", "✅", "✅", "✅"],
-        }
-    )
+    metrics_df = pd.DataFrame({
+        "Metric": ["ROC-AUC", "Model Type", "Embedding Dim", "Total Nodes", "Total Edges", "Decoder"],
+        "Value": [
+            f"{roc_auc_val:.4f}" if roc_auc_val is not None else "N/A",
+            "GraphSAGE", "64",
+            f"{embeddings.shape[0]:,}", f"{len(edges):,}",
+            "Multi-signal (dot + cosine + L2)",
+        ],
+        "Status": ["✅", "✅", "✅", "✅", "✅", "✅"],
+    })
     st.dataframe(metrics_df, width="stretch", hide_index=True)
 
 
@@ -1801,28 +1655,23 @@ elif "🌐 Network Visualization" in section:
         unsafe_allow_html=True,
     )
 
-    # ── Controls row ─────────────────────────────────────────────────────────
     vc1, vc2, vc3 = st.columns([1, 1, 1])
     with vc1:
         wallet_id_viz = st.number_input(
             "Centre Wallet ID",
-            min_value=0,
-            max_value=int(embeddings.shape[0] - 1),
+            min_value=0, max_value=int(embeddings.shape[0] - 1),
             value=int(st.session_state.get("_viz_wallet", 0)),
             key="viz_wallet_id",
         )
     with vc2:
         if st.button("🚨 Jump to Top Fraud Wallet", use_container_width=True):
-            st.session_state["_viz_wallet"] = int(
-                fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"]
-            )
+            st.session_state["_viz_wallet"] = int(fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"])
             st.rerun()
     with vc3:
         if st.button("🎲 Random Wallet", use_container_width=True, key="viz_rand"):
             st.session_state["_viz_wallet"] = int(np.random.randint(0, embeddings.shape[0]))
             st.rerun()
 
-    # ── Graph settings ────────────────────────────────────────────────────────
     with st.expander("⚙️ Graph Settings", expanded=True):
         gs1, gs2, gs3, gs4 = st.columns(4)
         with gs1:
@@ -1830,12 +1679,8 @@ elif "🌐 Network Visualization" in section:
         with gs2:
             depth = st.selectbox("Hop depth", ["1-hop", "2-hop"], index=0)
         with gs3:
-            layout_algo = st.selectbox(
-                "Layout algorithm",
-                ["spring", "kamada", "circular", "shell"],
-                index=0,
-                help="spring = force-directed (default) · kamada = energy minimisation · circular / shell = geometric"
-            )
+            layout_algo = st.selectbox("Layout algorithm", ["spring", "kamada", "circular", "shell"], index=0,
+                                       help="spring = force-directed · kamada = energy minimisation · circular / shell = geometric")
         with gs4:
             show_labels = st.toggle("Show address labels", value=True)
 
@@ -1843,89 +1688,66 @@ elif "🌐 Network Visualization" in section:
 
     if generate_btn:
         wid_viz = int(wallet_id_viz)
-
         with st.spinner("Building graph …"):
-            # ── Build edge set ────────────────────────────────────────────
             if depth == "2-hop":
-                hop1 = edges[
-                    (edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)
-                ]
+                hop1 = edges[(edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)]
                 hop1_nodes = set(hop1["from_id"].tolist() + hop1["to_id"].tolist())
-                hop2 = edges[
-                    edges["from_id"].isin(hop1_nodes) | edges["to_id"].isin(hop1_nodes)
-                ]
+                hop2 = edges[edges["from_id"].isin(hop1_nodes) | edges["to_id"].isin(hop1_nodes)]
                 graph_edges = pd.concat([hop1, hop2]).drop_duplicates()
             else:
-                graph_edges = edges[
-                    (edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)
-                ]
+                graph_edges = edges[(edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)]
 
-            fig = create_network_subgraph(
-                graph_edges, wid_viz, le, fraud_df,
-                max_connections=max_connections,
-                layout=layout_algo,
-                show_labels=show_labels,
-            )
+            fig = create_network_subgraph(graph_edges, wid_viz, le, fraud_df,
+                                          max_connections=max_connections, layout=layout_algo, show_labels=show_labels)
 
         if not fig:
             st.warning(f"No transactions found for wallet ID {wid_viz}.")
             st.stop()
 
-        # ── Resolve address ───────────────────────────────────────────────
         try:
             centre_addr = le.inverse_transform([wid_viz])[0]
         except Exception:
             centre_addr = None
 
-        # ── Address banner ────────────────────────────────────────────────
         is_fraud_centre = wid_viz in FRAUD_IDS
         if centre_addr:
-            st.markdown(
-                f'<span class="wallet-address-full">📍 {centre_addr}</span>',
-                unsafe_allow_html=True,
-            )
+            st.markdown(f'<span class="wallet-address-full">📍 {centre_addr}</span>', unsafe_allow_html=True)
+
         fraud_info = fraud_df[fraud_df["wallet_id"] == wid_viz]
         if is_fraud_centre and len(fraud_info) > 0:
             rs_c = float(fraud_info.iloc[0]["risk_score"])
             rl_c = fraud_info.iloc[0]["risk_level"]
             badge_color = {"Critical":"#dc2626","High":"#ef4444","Medium":"#d97706","Low":"#16a34a"}.get(rl_c,"#6366f1")
             st.markdown(
-                f'<div style="background:{badge_color}22; border:1px solid {badge_color}55; '
-                f'border-radius:10px; padding:0.6rem 1rem; margin:0.5rem 0;">'
+                f'<div style="background:{badge_color}22; border:1px solid {badge_color}55; border-radius:10px; padding:0.6rem 1rem; margin:0.5rem 0;">'
                 f'<b style="color:{badge_color};">⚠️ {rl_c} Risk — Score {rs_c:.1f}/100</b></div>',
                 unsafe_allow_html=True,
             )
         else:
             st.markdown(
-                '<div style="background:#16a34a22; border:1px solid #16a34a44; '
-                'border-radius:10px; padding:0.6rem 1rem; margin:0.5rem 0;">'
+                '<div style="background:#16a34a22; border:1px solid #16a34a44; border-radius:10px; padding:0.6rem 1rem; margin:0.5rem 0;">'
                 '<b style="color:#4ade80;">✅ Clean Wallet</b></div>',
                 unsafe_allow_html=True,
             )
 
-        # ── Graph plot ────────────────────────────────────────────────────
         st.plotly_chart(fig, use_container_width=True)
 
-        # ── Legend explainer ──────────────────────────────────────────────
+        legend_color = "#94a3b8" if st.session_state.dark_mode else "#475569"
         st.markdown(
-            """
-            <div style="display:flex; gap:18px; flex-wrap:wrap; font-size:0.8rem;
-                        color:#94a3b8; padding:0.3rem 0 1rem;">
+            f"""<div style="display:flex; gap:18px; flex-wrap:wrap; font-size:0.8rem; color:{legend_color}; padding:0.3rem 0 1rem;">
                 <span>⭐ <b style="color:#fbbf24;">Gold star</b> = Centre wallet (if flagged)</span>
                 <span>🔵 <b style="color:#3b82f6;">Blue</b> = Centre wallet (clean)</span>
                 <span>🔴 <b style="color:#ef4444;">Red</b> = Flagged wallet</span>
-                <span>⚪ <b style="color:#00d2ff;">Cyan</b> = Normal wallet</span>
-                <span>→ <b style="color:#00d2ff;">Cyan edges</b> = Outgoing</span>
+                <span>⚪ <b style="color:{PRIMARY_COLOR};">Cyan/Blue</b> = Normal wallet</span>
+                <span>→ Cyan/Blue edges = Outgoing</span>
                 <span>→ <b style="color:#a78bfa;">Violet edges</b> = Incoming</span>
                 <span style="color:#64748b;">Node size ∝ degree</span>
-            </div>
-            """,
+            </div>""",
             unsafe_allow_html=True,
         )
 
         st.markdown("---")
 
-        # ── KPI metrics ───────────────────────────────────────────────────
         out_txs  = edges[edges["from_id"] == wid_viz]
         in_txs   = edges[edges["to_id"]   == wid_viz]
         all_cp   = set(out_txs["to_id"].tolist()) | set(in_txs["from_id"].tolist())
@@ -1933,24 +1755,20 @@ elif "🌐 Network Visualization" in section:
         fraud_pct = round(len(fraud_cp) / max(len(all_cp), 1) * 100, 1)
 
         km1, km2, km3, km4, km5, km6 = st.columns(6)
-        km1.metric("Outgoing Txs",         f"{len(out_txs):,}")
-        km2.metric("Incoming Txs",         f"{len(in_txs):,}")
-        km3.metric("Total Txs",            f"{len(out_txs)+len(in_txs):,}")
-        km4.metric("Unique Counterparties",f"{len(all_cp):,}")
+        km1.metric("Outgoing Txs",          f"{len(out_txs):,}")
+        km2.metric("Incoming Txs",          f"{len(in_txs):,}")
+        km3.metric("Total Txs",             f"{len(out_txs)+len(in_txs):,}")
+        km4.metric("Unique Counterparties", f"{len(all_cp):,}")
         km5.metric("Flagged Counterparties",f"{len(fraud_cp):,}")
-        km6.metric("Fraud Exposure",       f"{fraud_pct}%",
+        km6.metric("Fraud Exposure",        f"{fraud_pct}%",
                    delta=("⚠️ High" if fraud_pct > 30 else "🟡 Moderate" if fraud_pct > 10 else "✅ Low"),
                    delta_color="off")
 
         st.markdown("")
-
-        # ── Two-tab detail panel ──────────────────────────────────────────
         detail_tab1, detail_tab2 = st.tabs(["📋 Connected Wallets", "🚨 Flagged Counterparties"])
 
         with detail_tab1:
-            connected = edges[
-                (edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)
-            ].copy()
+            connected = edges[(edges["from_id"] == wid_viz) | (edges["to_id"] == wid_viz)].copy()
             try:
                 connected["from_address"] = le.inverse_transform(connected["from_id"].astype(int))
                 connected["to_address"]   = le.inverse_transform(connected["to_id"].astype(int))
@@ -1958,18 +1776,13 @@ elif "🌐 Network Visualization" in section:
                 pass
             connected["from_fraud"] = connected["from_id"].apply(lambda x: "🚨" if x in FRAUD_IDS else "✅")
             connected["to_fraud"]   = connected["to_id"].apply(  lambda x: "🚨" if x in FRAUD_IDS else "✅")
-
-            st.dataframe(
-                connected,
-                use_container_width=True,
-                height=320,
-                column_config={
-                    "from_address": st.column_config.TextColumn("From Address", width="large"),
-                    "to_address":   st.column_config.TextColumn("To Address",   width="large"),
-                    "from_fraud":   st.column_config.TextColumn("From Flag",    width="small"),
-                    "to_fraud":     st.column_config.TextColumn("To Flag",      width="small"),
-                },
-            )
+            st.dataframe(connected, use_container_width=True, height=320,
+                         column_config={
+                             "from_address": st.column_config.TextColumn("From Address", width="large"),
+                             "to_address":   st.column_config.TextColumn("To Address",   width="large"),
+                             "from_fraud":   st.column_config.TextColumn("From Flag",    width="small"),
+                             "to_fraud":     st.column_config.TextColumn("To Flag",      width="small"),
+                         })
             st.download_button(
                 f"⬇️ Export Connected Wallets ({len(connected):,} rows)",
                 connected.to_csv(index=False),
@@ -1988,8 +1801,8 @@ elif "🌐 Network Visualization" in section:
                     except Exception:
                         fa = f"ID {fid}"
                     dirs = []
-                    if fid in set(out_txs["to_id"]):   dirs.append("Sent To")
-                    if fid in set(in_txs["from_id"]):  dirs.append("Received From")
+                    if fid in set(out_txs["to_id"]):  dirs.append("Sent To")
+                    if fid in set(in_txs["from_id"]): dirs.append("Received From")
                     fp_rows.append({
                         "Wallet Address": fa,
                         "Wallet ID":      int(fid),
@@ -1998,16 +1811,12 @@ elif "🌐 Network Visualization" in section:
                         "Relationship":   " & ".join(dirs),
                     })
                 fp_df = pd.DataFrame(fp_rows).sort_values("Risk Score", ascending=False)
-                st.dataframe(
-                    fp_df,
-                    use_container_width=True,
-                    height=280,
-                    column_config={
-                        "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
-                        "Risk Score":     st.column_config.NumberColumn("Risk Score",   format="%.1f"),
-                    },
-                    hide_index=True,
-                )
+                st.dataframe(fp_df, use_container_width=True, height=280,
+                             column_config={
+                                 "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
+                                 "Risk Score":     st.column_config.NumberColumn("Risk Score",   format="%.1f"),
+                             },
+                             hide_index=True)
                 st.download_button(
                     f"⬇️ Export {len(fp_df)} Flagged Counterparties",
                     fp_df.to_csv(index=False),
@@ -2018,12 +1827,10 @@ elif "🌐 Network Visualization" in section:
             else:
                 st.success("✅ No flagged wallets found among direct counterparties.")
 
-    # ── Suspicious Wallet Networks panel ─────────────────────────────────────
     st.markdown("---")
     st.markdown("### 🚨 Top Suspicious Wallet Networks")
     st.markdown(
-        '<p style="color:#64748b; font-size:0.85rem; margin-top:-0.5rem;">'
-        'Automatically renders the transaction neighbourhood of the highest-risk flagged wallets.</p>',
+        f'<p style="color:{"#64748b"}; font-size:0.85rem; margin-top:-0.5rem;">Automatically renders the transaction neighbourhood of the highest-risk flagged wallets.</p>',
         unsafe_allow_html=True,
     )
 
@@ -2048,35 +1855,25 @@ elif "🌐 Network Visualization" in section:
                 label_str = f"Wallet {fw_id} — {fw_rl} Risk ({fw_rs:.1f}/100)"
 
             with st.expander(label_str, expanded=False):
-                # Full address
                 try:
                     full_addr = le.inverse_transform([fw_id])[0]
-                    st.markdown(
-                        f'<span class="wallet-address-full">📍 {full_addr}</span>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(f'<span class="wallet-address-full">📍 {full_addr}</span>', unsafe_allow_html=True)
                 except Exception:
                     pass
 
-                sub_fig = create_network_subgraph(
-                    edges, fw_id, le, fraud_df,
-                    max_connections=susp_max_conn,
-                    layout=susp_layout,
-                    show_labels=True,
-                )
+                sub_fig = create_network_subgraph(edges, fw_id, le, fraud_df,
+                                                  max_connections=susp_max_conn, layout=susp_layout, show_labels=True)
                 if sub_fig:
                     st.plotly_chart(sub_fig, use_container_width=True)
-
-                    # Mini stats
                     s_out = edges[edges["from_id"] == fw_id]
                     s_in  = edges[edges["to_id"]   == fw_id]
                     s_cp  = set(s_out["to_id"].tolist()) | set(s_in["from_id"].tolist())
                     s_fraud_cp = s_cp & FRAUD_IDS
                     sc1, sc2, sc3, sc4 = st.columns(4)
-                    sc1.metric("Outgoing", f"{len(s_out):,}")
-                    sc2.metric("Incoming", f"{len(s_in):,}")
-                    sc3.metric("Counterparties", f"{len(s_cp):,}")
-                    sc4.metric("Flagged CPs", f"{len(s_fraud_cp):,}")
+                    sc1.metric("Outgoing",      f"{len(s_out):,}")
+                    sc2.metric("Incoming",      f"{len(s_in):,}")
+                    sc3.metric("Counterparties",f"{len(s_cp):,}")
+                    sc4.metric("Flagged CPs",   f"{len(s_fraud_cp):,}")
                 else:
                     st.info("No transactions found for this wallet.")
 
@@ -2086,15 +1883,14 @@ elif "🌐 Network Visualization" in section:
 # -----------------------------------------------
 st.markdown("---")
 st.markdown(
-    f"""
-<div class="footer-text">
+    f"""<div class="footer-text">
     <strong>Transaction Link Prediction in Blockchain using Graph Neural Networks</strong><br>
     Powered by GraphSAGE &nbsp;·&nbsp; Ethereum Mainnet &nbsp;·&nbsp; Built with Streamlit<br>
     <span style="color:#334155; font-size:0.75rem;">
-        Dashboard v2.1 &nbsp;·&nbsp; {datetime.now().strftime("%Y-%m-%d")} &nbsp;·&nbsp;
-        All wallet addresses displayed in full for auditability
+        Dashboard v2.2 &nbsp;·&nbsp; {datetime.now().strftime("%Y-%m-%d")} &nbsp;·&nbsp;
+        All wallet addresses displayed in full for auditability &nbsp;·&nbsp;
+        {'🌙 Dark Mode' if st.session_state.dark_mode else '☀️ Light Mode'}
     </span>
-</div>
-""",
+</div>""",
     unsafe_allow_html=True,
 )
