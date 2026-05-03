@@ -1,0 +1,21 @@
+2026-05-03 07:25:33.225 Uvicorn server started on 0.0.0.0:5000
+[0m
+[34m[1m  You can now view your Streamlit app in your browser.[0m
+[0m
+[34m  Local URL: [0m[1mhttp://localhost:5000[0m
+[34m  Network URL: [0m[1mhttp://172.31.84.226:5000[0m
+[34m  External URL: [0m[1mhttp://34.14.169.138:5000[0m
+[0m
+2026-05-03 07:26:44,598 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:27:02,660 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:27:02,663 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:27:02,665 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:27:02,668 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:28:14,372 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:28:14,374 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:28:14,379 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:28:14,382 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:28:42,811 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:28:42,815 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:28:42,822 [WARNING] Web3 connected but is_connected() returned False
+2026-05-03 07:28:42,824 [WARNING] Web3 connected but is_connected() returned False
