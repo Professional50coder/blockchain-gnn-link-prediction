@@ -11,7 +11,8 @@ import streamlit as st
 
 logger = logging.getLogger(__name__)
 
-ETHERSCAN_BASE = "https://api.etherscan.io/api"
+ETHERSCAN_BASE = "https://api.etherscan.io/v2/api"
+ETHERSCAN_CHAIN_ID = 1  # Ethereum Mainnet
 
 # ── Web3 RPC resolution ────────────────────────────────────────────────────
 # Priority: WEB3_PROVIDER_URL env var → Alchemy built-in fallback → public BlastAPI
@@ -194,6 +195,7 @@ def get_latest_block_info() -> dict | None:
 # ── Etherscan REST helpers ────────────────────────────────────────────────
 
 def _etherscan_get(params: dict) -> dict | None:
+    params.setdefault("chainid", ETHERSCAN_CHAIN_ID)
     key = ETHERSCAN_API_KEY
     if key:
         params["apikey"] = key
