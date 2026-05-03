@@ -598,18 +598,75 @@ def plot_event_log_chart(events_df: pd.DataFrame, dark: bool = True) -> go.Figur
 
 def plot_degree_distributions(edges_df: pd.DataFrame, dark: bool = True) -> tuple[go.Figure, go.Figure]:
     p = _p(dark)
-    out_deg = edges_df.groupby("from_id").size()
-    in_deg  = edges_df.groupby("to_id").size()
+    out_deg = edges_df.groupby("from_id").size().sort_values()
+    in_deg  = edges_df.groupby("to_id").size().sort_values()
 
-    def _hist(series, title, color):
-        fig = px.histogram(series, nbins=60, title=title,
-                           labels={"value": "Degree"},
-                           color_discrete_sequence=[color])
-        fig.update_layout(template=p["plotly"], height=300,
-                          paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                          margin=dict(t=40,b=40,l=40,r=20),
-                          showlegend=False)
+    def _make_fig(series, title, color, accent, top_id):
+        # Value counts for clean bar chart (degree → wallet count)
+        vc = series.value_counts().sort_index()
+        # Cap x-axis at 99th percentile for readability (exclude extreme hubs)
+        cap = int(np.percentile(series.values, 99))
+        vc_capped = vc[vc.index <= cap]
+
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=vc_capped.index.tolist(),
+            y=vc_capped.values.tolist(),
+            marker=dict(
+                color=vc_capped.index.map(
+                    lambda d: accent if d > 10 else color
+                ).tolist(),
+                opacity=0.85,
+                line=dict(width=0),
+            ),
+            name="Wallets",
+            hovertemplate="Degree %{x}: %{y:,} wallets<extra></extra>",
+        ))
+
+        # 99th-pct cap note
+        if series.max() > cap:
+            fig.add_annotation(
+                x=cap, y=vc_capped[cap] if cap in vc_capped.index else vc_capped.iloc[-1],
+                text=f"▶ max={series.max():,}",
+                showarrow=False,
+                font=dict(color=accent, size=9, family="JetBrains Mono, monospace"),
+                xanchor="left", yanchor="bottom",
+            )
+
+        # Degree=1 dominance annotation
+        if 1 in vc.index:
+            pct1 = vc[1] / series.size * 100
+            fig.add_annotation(
+                x=1, y=vc[1],
+                text=f"{pct1:.0f}% single-tx",
+                showarrow=True, arrowhead=2, ax=35, ay=-28,
+                font=dict(color=p["text_muted"], size=9),
+                bgcolor=p["card"], bordercolor=p["border"], borderwidth=1,
+            )
+
+        # Hub threshold line
+        fig.add_vline(
+            x=10, line_dash="dot", line_color=accent, line_width=1.2,
+            annotation_text="Hub threshold (>10)",
+            annotation_position="top right",
+            annotation_font=dict(color=accent, size=8),
+        )
+
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=13, color=p["text"], family="Inter")),
+            xaxis_title="Degree",
+            yaxis_title="Wallet count",
+            yaxis_type="log",
+            template=p["plotly"], height=320,
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(t=44, b=44, l=50, r=20),
+            showlegend=False,
+            bargap=0.05,
+        )
         return fig
 
-    return (_hist(out_deg, "Out-Degree Distribution", p["primary"]),
-            _hist(in_deg,  "In-Degree Distribution",  p["accent"]))
+    fig_out = _make_fig(out_deg, "Out-Degree Distribution  (log scale)",
+                        p["primary"], p["accent"],   out_deg.idxmax())
+    fig_in  = _make_fig(in_deg,  "In-Degree Distribution   (log scale)",
+                        p["teal"],   p["danger"],    in_deg.idxmax())
+    return fig_out, fig_in
