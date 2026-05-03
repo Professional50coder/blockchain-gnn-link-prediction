@@ -426,6 +426,339 @@ def plot_pca_embeddings(
     return fig
 
 
+# ── Live animated architecture diagram (HTML/Canvas) ──────────────────────
+
+def render_architecture_animation(dark: bool = True) -> str:
+    """Return a self-contained HTML string with a fully animated GraphSAGE
+    architecture diagram: particle flow, pulsing nodes, animated dashes,
+    hover tooltips, and click-to-burst interaction."""
+    df = 'true' if dark else 'false'
+    bg = '#0d1117' if dark else '#f0f6ff'
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+html,body{{background:{bg};overflow:hidden;width:100%;height:100%}}
+canvas{{display:block;cursor:crosshair}}
+#tip{{position:fixed;background:rgba(13,17,23,.94);color:#e6edf3;
+      border:1px solid #58a6ff55;border-radius:9px;padding:8px 12px;
+      font:12px -apple-system,'Inter',sans-serif;pointer-events:none;
+      white-space:pre;display:none;z-index:99;line-height:1.55;
+      box-shadow:0 4px 20px rgba(0,0,0,.6)}}
+#hdr{{position:absolute;top:10px;left:0;right:0;text-align:center;
+      font:bold 12px -apple-system,'Inter',sans-serif;
+      color:{'#8b949e' if dark else '#656d76'};letter-spacing:.06em;
+      pointer-events:none;user-select:none}}
+#hint{{position:absolute;bottom:8px;right:14px;
+       font:9px -apple-system,sans-serif;color:{'#484f58' if dark else '#aaa'};
+       pointer-events:none;user-select:none}}
+</style></head>
+<body>
+<canvas id="c"></canvas>
+<div id="tip"></div>
+<div id="hdr">GRAPHSAGE ARCHITECTURE &nbsp;·&nbsp; LIVE DATA FLOW</div>
+<div id="hint">click any layer to burst · hover for details</div>
+<script>
+const DARK={df};
+const BG='{bg}';
+const PAL={{
+  bg:BG,
+  primary:'#58a6ff',accent:'#bc8cff',success:'#3fb950',
+  warning:'#e3b341',orange:'#f0883e',danger:'#f85149',
+  muted:DARK?'#8b949e':'#656d76',text:DARK?'#e6edf3':'#24292f',
+  card:DARK?'#161b22':'#ffffff',border:DARK?'#30363d':'#d0d7de',
+}};
+
+const LAYER_DEFS=[
+  {{id:'input',    label:'Input',         subs:['2 features','in · out degree'],
+    formula:'x ∈ ℝ²',              color:PAL.primary, n:2,
+    detail:'Raw topological features\\n2 values per wallet:\\n  • in-degree (txs received)\\n  • out-degree (txs sent)'}},
+  {{id:'sage1',    label:'GraphSAGE L1',  subs:['64 dims','MEAN aggregation'],
+    formula:'h¹=σ(W¹·CONCAT(h⁰,MEAN(N)))', color:PAL.accent,   n:6,
+    detail:'1-hop neighbourhood aggregation\\nEach wallet collects its\\ndirect counterparties\\' embeddings'}},
+  {{id:'sage2',    label:'GraphSAGE L2',  subs:['64 dims','MEAN aggregation'],
+    formula:'h²=σ(W²·CONCAT(h¹,MEAN(N)))', color:PAL.accent,   n:6,
+    detail:'2-hop neighbourhood aggregation\\nNow sees the counterparties\\nof counterparties (depth-2)'}},
+  {{id:'embed',    label:'Embedding',     subs:['64-dim vector','L2 normalised'],
+    formula:'z = L2(h²) ∈ ℝ⁶⁴',   color:PAL.success, n:6,
+    detail:'Final wallet representation\\n64-dimensional L2-normalised\\nvector · used for fraud scoring\\nand link prediction'}},
+  {{id:'decoder',  label:'Decoder',       subs:['dot · cos · L2','weighted score'],
+    formula:'s=0.5·dot+0.3·cos+0.2·L2',color:PAL.warning, n:3,
+    detail:'3 complementary similarity signals:\\n  • dot product  (weight 0.5)\\n  • cosine sim   (weight 0.3)\\n  • L2 distance  (weight 0.2)'}},
+  {{id:'output',   label:'Output',        subs:['Link probability','∈ [0, 1]'],
+    formula:'p = σ(score)',         color:PAL.orange,  n:1,
+    detail:'Transaction link probability\\np → 1.0 = very likely link\\np → 0.0 = unlikely link\\nThreshold 0.5 for classification'}},
+];
+
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const tip=document.getElementById('tip');
+let W=0,H=0,dpr=1,layers=[],particles=[],frame=0;
+const BOX_W=74,NODE_R=8,PAD_X=52,PAD_TOP=52,PAD_BOT=90;
+const NPART=100;
+
+function hex2rgb(h){{
+  const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);
+  return [r,g,b];
+}}
+function rgba(h,a){{const[r,g,b]=hex2rgb(h);return`rgba(${{r}},${{g}},${{b}},${{a}})`;}}
+
+function resize(){{
+  dpr=window.devicePixelRatio||1;
+  W=window.innerWidth;H=window.innerHeight;
+  canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  ctx.scale(dpr,dpr);
+  buildLayout();
+}}
+
+function buildLayout(){{
+  const usableW=W-PAD_X*2;
+  const step=usableW/(LAYER_DEFS.length-1);
+  const centerY=(H-PAD_TOP-PAD_BOT)/2+PAD_TOP;
+  layers=LAYER_DEFS.map((def,i)=>{{
+    const cx=PAD_X+i*step;
+    const gap=Math.min(38,Math.max(24,(H-PAD_TOP-PAD_BOT-40)/(def.n)));
+    const totalH=(def.n-1)*gap;
+    const nodes=Array.from({{length:def.n}},(_,j)=>{{
+      const x=cx,y=centerY-totalH/2+j*gap;
+      return {{x,y,phase:Math.random()*Math.PI*2,active:0,flash:0}};
+    }});
+    return {{...def,cx,nodes,gap,step}};
+  }});
+  spawnAll();
+}}
+
+function spawnParticle(fromIdx){{
+  const li=fromIdx!==undefined?fromIdx:Math.floor(Math.random()*(layers.length-1));
+  if(li>=layers.length-1)return spawnParticle(0);
+  const lA=layers[li],lB=layers[li+1];
+  if(!lA||!lB)return;
+  const nA=lA.nodes[Math.floor(Math.random()*lA.n)];
+  const nB=lB.nodes[Math.floor(Math.random()*lB.n)];
+  const speed=0.0045+Math.random()*0.0055;
+  return {{
+    x0:nA.x,y0:nA.y,x1:nB.x,y1:nB.y,
+    t:Math.random(),speed,
+    color:lA.color,r:1.8+Math.random()*1.6,
+    alpha:0.65+Math.random()*0.35,
+    trail:[],li,nBIdx:lB.nodes.indexOf(nB),
+  }};
+}}
+
+function spawnAll(){{
+  particles.length=0;
+  for(let i=0;i<NPART;i++){{
+    const p=spawnParticle();
+    if(p)particles.push(p);
+  }}
+}}
+
+let hoverLayer=-1,mx=-999,my=-999;
+canvas.addEventListener('mousemove',e=>{{
+  const r=canvas.getBoundingClientRect();
+  mx=e.clientX-r.left;my=e.clientY-r.top;
+  hoverLayer=-1;
+  for(let i=0;i<layers.length;i++){{
+    if(Math.abs(mx-layers[i].cx)<BOX_W/2+12){{hoverLayer=i;break;}}
+  }}
+  if(hoverLayer>=0){{
+    const l=layers[hoverLayer];
+    tip.style.display='block';
+    tip.style.left=Math.min(mx+16,W-180)+'px';
+    tip.style.top=Math.max(my-10,8)+'px';
+    tip.textContent=l.label+'\\n\\n'+l.detail;
+  }}else{{tip.style.display='none';}}
+}});
+canvas.addEventListener('mouseleave',()=>{{hoverLayer=-1;tip.style.display='none';}});
+canvas.addEventListener('click',e=>{{
+  const r=canvas.getBoundingClientRect();
+  const cx=e.clientX-r.left;
+  for(let i=0;i<layers.length-1;i++){{
+    if(Math.abs(cx-layers[i].cx)<BOX_W/2+14){{
+      for(let j=0;j<18;j++){{const p=spawnParticle(i);if(p){{p.t=0;particles.push(p);}}}}
+      for(const n of layers[i].nodes){{n.flash=1;n.active=1;}}
+      break;
+    }}
+  }}
+}});
+
+function rrect(x,y,w,h,r){{
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);
+  ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);
+  ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);
+  ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+}}
+
+function draw(){{
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=BG;ctx.fillRect(0,0,W,H);
+
+  /* dot grid */
+  if(DARK){{
+    for(let gx=22;gx<W;gx+=26)for(let gy=22;gy<H;gy+=26){{
+      ctx.beginPath();ctx.arc(gx,gy,0.7,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,0.028)';ctx.fill();
+    }}
+  }}
+
+  if(!layers.length){{requestAnimationFrame(draw);return;}}
+
+  /* ── connection lines ───────────────────────────────────── */
+  for(let i=0;i<layers.length-1;i++){{
+    const lA=layers[i],lB=layers[i+1];
+    for(const nA of lA.nodes)for(const nB of lB.nodes){{
+      ctx.beginPath();ctx.moveTo(nA.x,nA.y);ctx.lineTo(nB.x,nB.y);
+      ctx.strokeStyle=rgba(lA.color,hoverLayer===i?0.10:0.032);
+      ctx.lineWidth=0.75;ctx.stroke();
+    }}
+  }}
+
+  /* ── particles ──────────────────────────────────────────── */
+  for(let i=particles.length-1;i>=0;i--){{
+    const p=particles[i];
+    p.t+=p.speed;
+    if(p.t>=1){{
+      /* activate destination node */
+      const lB=layers[p.li+1];
+      if(lB&&lB.nodes[p.nBIdx]){{
+        const nd=lB.nodes[p.nBIdx];
+        nd.active=Math.min(1,(nd.active||0)+0.45);
+      }}
+      particles.splice(i,1);
+      const np=spawnParticle();if(np)particles.push(np);
+      continue;
+    }}
+    const x=p.x0+(p.x1-p.x0)*p.t,y=p.y0+(p.y1-p.y0)*p.t;
+    p.trail.push({{x,y}});if(p.trail.length>12)p.trail.shift();
+
+    /* trail */
+    for(let j=0;j<p.trail.length;j++){{
+      const a=(j/p.trail.length)*p.alpha*0.38;
+      const r=p.r*(0.3+0.7*j/p.trail.length);
+      ctx.beginPath();ctx.arc(p.trail[j].x,p.trail[j].y,r,0,Math.PI*2);
+      ctx.fillStyle=rgba(p.color,a);ctx.fill();
+    }}
+    /* outer glow */
+    const g=ctx.createRadialGradient(x,y,0,x,y,p.r*4.5);
+    g.addColorStop(0,rgba(p.color,p.alpha*0.35));
+    g.addColorStop(1,rgba(p.color,0));
+    ctx.beginPath();ctx.arc(x,y,p.r*4.5,0,Math.PI*2);
+    ctx.fillStyle=g;ctx.fill();
+    /* core */
+    ctx.beginPath();ctx.arc(x,y,p.r,0,Math.PI*2);
+    ctx.fillStyle=rgba(p.color,p.alpha);ctx.fill();
+  }}
+
+  /* ── layer boxes + nodes + labels ──────────────────────── */
+  for(let i=0;i<layers.length;i++){{
+    const l=layers[i];
+    const isHov=hoverLayer===i;
+    const pulse=0.5+0.5*Math.sin(frame*0.022+i*1.05);
+    const minY=Math.min(...l.nodes.map(n=>n.y));
+    const maxY=Math.max(...l.nodes.map(n=>n.y));
+    const bx=l.cx-BOX_W/2,by=minY-NODE_R-18;
+    const bh=(maxY-minY)+(NODE_R+18)*2;
+
+    /* box shadow + fill */
+    ctx.save();
+    ctx.shadowBlur=isHov?28:12+pulse*9;
+    ctx.shadowColor=rgba(l.color,.38);
+    rrect(bx,by,BOX_W,bh,11);
+    ctx.fillStyle=rgba(l.color,isHov?0.13:0.065);ctx.fill();
+    ctx.strokeStyle=rgba(l.color,isHov?0.65:0.22+pulse*0.16);
+    ctx.lineWidth=isHov?2:1.25;ctx.stroke();
+    ctx.restore();
+
+    /* nodes */
+    for(const nd of l.nodes){{
+      nd.active=Math.max(0,(nd.active||0)-0.018);
+      nd.flash=Math.max(0,(nd.flash||0)-0.04);
+      const np=0.5+0.5*Math.sin(frame*0.028+nd.phase);
+      const act=nd.active||0;
+
+      /* outer pulse ring */
+      ctx.beginPath();ctx.arc(nd.x,nd.y,NODE_R+5+np*3.5+act*7,0,Math.PI*2);
+      ctx.fillStyle=rgba(l.color,0.042+act*0.08+nd.flash*0.15);ctx.fill();
+
+      /* flash ring on activation */
+      if(nd.flash>0.05){{
+        ctx.beginPath();ctx.arc(nd.x,nd.y,NODE_R+10+nd.flash*8,0,Math.PI*2);
+        ctx.strokeStyle=rgba(l.color,nd.flash*0.5);ctx.lineWidth=1.2;ctx.stroke();
+      }}
+
+      /* body glow */
+      ctx.save();
+      ctx.shadowBlur=7+np*5+act*14+(nd.flash||0)*10;
+      ctx.shadowColor=rgba(l.color,.75);
+      ctx.beginPath();ctx.arc(nd.x,nd.y,NODE_R+act*2.5,0,Math.PI*2);
+      const ng=ctx.createRadialGradient(nd.x-2.5,nd.y-2.5,1,nd.x,nd.y,NODE_R+act*2.5);
+      ng.addColorStop(0,rgba(l.color,0.92+act*.08));
+      ng.addColorStop(1,rgba(l.color,0.52));
+      ctx.fillStyle=ng;ctx.fill();
+      ctx.restore();
+
+      /* highlight ring */
+      ctx.beginPath();ctx.arc(nd.x,nd.y,NODE_R,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(255,255,255,${{DARK?0.18:0.1}})`;
+      ctx.lineWidth=1;ctx.stroke();
+    }}
+
+    /* formula label above box */
+    ctx.textAlign='center';
+    ctx.fillStyle=rgba(l.color,isHov?0.55:0.28);
+    ctx.font=`italic 7.5px 'JetBrains Mono','Courier New',monospace`;
+    ctx.fillText(l.formula,l.cx,by-7);
+
+    /* layer name + subs below box */
+    const lby=maxY+NODE_R+17;
+    ctx.fillStyle=isHov?l.color:rgba(l.color,0.92);
+    ctx.font=`bold 10.5px -apple-system,'Inter',sans-serif`;
+    ctx.fillText(l.label,l.cx,lby);
+    ctx.fillStyle=PAL.muted;
+    ctx.font=`9px -apple-system,'Inter',sans-serif`;
+    l.subs.forEach((s,si)=>ctx.fillText(s,l.cx,lby+13+si*11));
+
+    /* node count badge */
+    const badge=`${{l.n}} node${{l.n>1?'s':''}}`;
+    ctx.fillStyle=rgba(l.color,isHov?0.55:0.22);
+    ctx.font=`8px -apple-system,sans-serif`;
+    ctx.fillText(badge,l.cx,by-19);
+  }}
+
+  /* ── animated dashed arrows between boxes ───────────────── */
+  for(let i=0;i<layers.length-1;i++){{
+    const x0=layers[i].cx+BOX_W/2+4,x1=layers[i+1].cx-BOX_W/2-4;
+    const ay=(layers[i].nodes[0].y+layers[i].nodes[layers[i].n-1].y)/2;
+    const pulse=0.5+0.5*Math.sin(frame*0.04+i*0.85);
+    const col=layers[i].color;
+    const dashOff=-(frame*1.1%16);
+
+    /* animated dash line */
+    ctx.save();
+    ctx.setLineDash([5,5]);ctx.lineDashOffset=dashOff;
+    ctx.beginPath();ctx.moveTo(x0,ay);ctx.lineTo(x1-9,ay);
+    ctx.strokeStyle=rgba(col,0.32+pulse*0.22);ctx.lineWidth=1.4;ctx.stroke();
+    ctx.restore();
+
+    /* arrowhead */
+    ctx.beginPath();
+    ctx.moveTo(x1,ay);ctx.lineTo(x1-9,ay-4.5);ctx.lineTo(x1-9,ay+4.5);
+    ctx.closePath();
+    ctx.fillStyle=rgba(col,0.48+pulse*0.28);ctx.fill();
+  }}
+
+  frame++;
+  requestAnimationFrame(draw);
+}}
+
+window.addEventListener('resize',()=>{{resize();}});
+resize();draw();
+</script></body></html>"""
+
+
 # ── GNN Architecture Diagram ──────────────────────────────────────────────
 
 def plot_architecture_diagram(dark: bool = True) -> go.Figure:
