@@ -83,15 +83,30 @@ def find_top_k_similar(
 
 
 def create_graph_statistics(edges_df: pd.DataFrame) -> dict:
-    out_deg = edges_df.groupby("from_id").size()
-    in_deg  = edges_df.groupby("to_id").size()
+    out_deg    = edges_df.groupby("from_id").size()
+    in_deg     = edges_df.groupby("to_id").size()
+    all_active = set(edges_df["from_id"].unique()) | set(edges_df["to_id"].unique())
+    n_edges    = len(edges_df)
+    top_out_id = int(out_deg.idxmax())
+    top_in_id  = int(in_deg.idxmax())
     return {
-        "total_transactions": len(edges_df),
-        "unique_senders":     edges_df["from_id"].nunique(),
-        "unique_receivers":   edges_df["to_id"].nunique(),
-        "avg_out_degree":     float(out_deg.mean()),
-        "avg_in_degree":      float(in_deg.mean()),
-        "max_out_degree":     int(out_deg.max()),
-        "max_in_degree":      int(in_deg.max()),
-        "median_out_degree":  float(out_deg.median()),
+        "total_transactions":  n_edges,
+        "unique_senders":      edges_df["from_id"].nunique(),
+        "unique_receivers":    edges_df["to_id"].nunique(),
+        "active_nodes":        len(all_active),
+        # avg over active senders/receivers respectively
+        "avg_out_degree":      float(out_deg.mean()),
+        "avg_in_degree":       float(in_deg.mean()),
+        "max_out_degree":      int(out_deg.max()),
+        "max_in_degree":       int(in_deg.max()),
+        "median_out_degree":   float(out_deg.median()),
+        "median_in_degree":    float(in_deg.median()),
+        "top_sender_id":       top_out_id,
+        "top_receiver_id":     top_in_id,
+        # single-tx wallets (power-law indicator)
+        "single_tx_senders":   int((out_deg == 1).sum()),
+        "single_tx_pct":       float((out_deg == 1).mean() * 100),
+        # hub wallets with > 10 txs
+        "hub_senders":         int((out_deg > 10).sum()),
+        "hub_receivers":       int((in_deg  > 10).sum()),
     }

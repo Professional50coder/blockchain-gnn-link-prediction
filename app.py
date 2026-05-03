@@ -396,30 +396,82 @@ elif "📊 Graph Analytics" in section:
     st.markdown('<p class="main-header">📊 Graph Analytics</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Degree distribution · Transaction explorer · Network topology metrics</p>', unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown("#### Network")
         st.metric("Nodes (Wallets)",   f"{embeddings.shape[0]:,}")
         st.metric("Edges (Txs)",        f"{stats['total_transactions']:,}")
-        density = stats['total_transactions'] / (embeddings.shape[0] ** 2)
+        density = stats['total_transactions'] / (embeddings.shape[0] * (embeddings.shape[0]-1))
         st.metric("Graph Density",      f"{density:.2e}")
+        st.metric("Active Nodes",       f"{stats['active_nodes']:,}")
     with c2:
         st.markdown("#### Degree")
-        st.metric("Avg Out-Degree",     f"{stats['avg_out_degree']:.2f}")
-        st.metric("Avg In-Degree",      f"{stats['avg_in_degree']:.2f}")
-        st.metric("Max Out-Degree",     f"{stats['max_out_degree']:,}")
+        st.metric("Avg Out-Degree",     f"{stats['avg_out_degree']:.2f}",
+                  help="Mean out-degree over unique senders")
+        st.metric("Avg In-Degree",      f"{stats['avg_in_degree']:.2f}",
+                  help="Mean in-degree over unique receivers")
+        st.metric("Max Out-Degree",     f"{stats['max_out_degree']:,}",
+                  help=f"Hub wallet ID {stats['top_sender_id']}")
+        st.metric("Max In-Degree",      f"{stats['max_in_degree']:,}",
+                  help=f"Hub wallet ID {stats['top_receiver_id']}")
     with c3:
         st.markdown("#### Nodes")
         st.metric("Unique Senders",     f"{stats['unique_senders']:,}")
         st.metric("Unique Receivers",   f"{stats['unique_receivers']:,}")
         st.metric("Embedding Dims",     f"{embeddings.shape[1]}")
+        st.metric("Median Out-Degree",  f"{stats['median_out_degree']:.0f}",
+                  help="50th percentile — most wallets sent exactly 1 tx")
+    with c4:
+        st.markdown("#### Power-Law")
+        st.metric("Single-Tx Wallets",  f"{stats['single_tx_pct']:.1f}%",
+                  help=f"{stats['single_tx_senders']:,} wallets sent exactly 1 transaction")
+        st.metric("Hub Senders (>10)",  f"{stats['hub_senders']:,}",
+                  help="Wallets that sent more than 10 transactions")
+        st.metric("Hub Receivers (>10)",f"{stats['hub_receivers']:,}",
+                  help="Wallets that received more than 10 transactions")
+        st.metric("Top Sender ID",      f"#{stats['top_sender_id']}",
+                  help=f"Out-degree = {stats['max_out_degree']:,}")
 
     st.markdown("---")
     st.markdown("### 📊 Degree Distributions")
+    st.markdown(
+        f'<p style="color:{p["text_muted"]};font-size:0.82rem;margin-bottom:0.5rem;">'
+        f'Log-scale Y-axis · Bars right of the dashed line are <b>hub wallets</b> (degree&nbsp;&gt;&nbsp;10) · '
+        f'X-axis capped at 99th percentile for readability · hover for exact counts.</p>',
+        unsafe_allow_html=True)
     fig_out, fig_in = plot_degree_distributions(edges, dark=st.session_state.dark_mode)
     col1, col2 = st.columns(2)
     with col1: st.plotly_chart(fig_out, use_container_width=True)
     with col2: st.plotly_chart(fig_in,  use_container_width=True)
+
+    # Hub wallets table
+    with st.expander("🏆 Top Hub Wallets"):
+        out_deg_series = edges.groupby("from_id").size().nlargest(10).reset_index()
+        out_deg_series.columns = ["Wallet ID", "Out-Degree"]
+        in_deg_series  = edges.groupby("to_id").size().nlargest(10).reset_index()
+        in_deg_series.columns  = ["Wallet ID", "In-Degree"]
+        try:
+            out_deg_series["Address"] = out_deg_series["Wallet ID"].apply(
+                lambda i: le.inverse_transform([i])[0])
+            in_deg_series["Address"]  = in_deg_series["Wallet ID"].apply(
+                lambda i: le.inverse_transform([i])[0])
+        except Exception:
+            pass
+        out_deg_series["Fraud"] = out_deg_series["Wallet ID"].apply(
+            lambda i: "🚨" if i in FRAUD_IDS else "✅")
+        in_deg_series["Fraud"]  = in_deg_series["Wallet ID"].apply(
+            lambda i: "🚨" if i in FRAUD_IDS else "✅")
+        hc1, hc2 = st.columns(2)
+        with hc1:
+            st.markdown("**Top Senders (Out-Degree)**")
+            st.dataframe(out_deg_series, use_container_width=True, hide_index=True,
+                         column_config={"Address": st.column_config.TextColumn("Address", width="large"),
+                                        "Out-Degree": st.column_config.NumberColumn("Out-Degree", format="%d")})
+        with hc2:
+            st.markdown("**Top Receivers (In-Degree)**")
+            st.dataframe(in_deg_series, use_container_width=True, hide_index=True,
+                         column_config={"Address": st.column_config.TextColumn("Address", width="large"),
+                                        "In-Degree": st.column_config.NumberColumn("In-Degree", format="%d")})
 
     st.markdown("---")
     st.markdown("### 📋 Transaction Explorer")
