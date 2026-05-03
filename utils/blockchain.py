@@ -14,6 +14,15 @@ logger = logging.getLogger(__name__)
 ETHERSCAN_BASE = "https://api.etherscan.io/api"
 DEFAULT_RPC    = "https://eth.mainnet.public.blastapi.io"
 
+# ── API key resolution ─────────────────────────────────────────────────────
+# Priority: ETHERSCAN_API_KEY secret → ETHERSCAN_API_KEY_DEFAULT env var → built-in fallback
+_BUILTIN_FALLBACK = "41NENJ1WX2RNDWTFIFUJXSNECMQ8P9KB45"
+ETHERSCAN_API_KEY: str = (
+    os.environ.get("ETHERSCAN_API_KEY")
+    or os.environ.get("ETHERSCAN_API_KEY_DEFAULT")
+    or _BUILTIN_FALLBACK
+)
+
 # ── ERC-20 Transfer event signature ──────────────────────────────────────
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 
@@ -177,7 +186,7 @@ def get_latest_block_info() -> dict | None:
 # ── Etherscan REST helpers ────────────────────────────────────────────────
 
 def _etherscan_get(params: dict) -> dict | None:
-    key = os.environ.get("ETHERSCAN_API_KEY", "")
+    key = ETHERSCAN_API_KEY
     if key:
         params["apikey"] = key
     try:

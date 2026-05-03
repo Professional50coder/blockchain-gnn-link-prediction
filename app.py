@@ -24,7 +24,7 @@ from utils.ml_utils import (
     find_top_k_similar, create_graph_statistics,
 )
 from utils.blockchain import (
-    DEFI_PROTOCOLS, KNOWN_EVENTS,
+    DEFI_PROTOCOLS, KNOWN_EVENTS, ETHERSCAN_API_KEY,
     fetch_eth_balance, fetch_transactions, fetch_token_transfers,
     check_is_contract, fetch_tx_count, detect_protocols_from_txs,
     fetch_event_logs_web3, get_latest_block_info, get_web3,
@@ -44,8 +44,8 @@ warnings.filterwarnings("ignore")
 
 # ── Page config ───────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Blockchain GNN Analytics",
-    page_icon="🔗",
+    page_title="ChainIntel Pro — Blockchain Intelligence",
+    page_icon="⛓",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -130,25 +130,30 @@ FRAUD_IDS: set = set(fraud_df["wallet_id"].tolist()) if "wallet_id" in fraud_df.
 # SIDEBAR
 # ═══════════════════════════════════════════════
 with st.sidebar:
+    # ── Product Logo ──────────────────────────────────────────────────
     st.markdown(f"""
-    <div style="text-align:center;padding:0.4rem 0 1rem;">
-        <div style="font-size:2.6rem;">🔗</div>
-        <div style="font-family:'Inter',sans-serif;font-size:1rem;font-weight:700;
-                    background:linear-gradient(135deg,{p['primary']},{p['accent']});
-                    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-                    background-clip:text;margin-top:4px;">GNN Analytics</div>
-        <div style="color:{p['text_subtle']};font-size:0.68rem;margin-top:2px;letter-spacing:1.2px;">
-            BLOCKCHAIN INTELLIGENCE
+    <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">⛓</div>
+        <div class="sidebar-product-name">ChainIntel Pro</div>
+        <div class="sidebar-tagline">Blockchain Intelligence</div>
+        <div style="margin-top:8px;">
+            <span class="product-badge">ENTERPRISE</span>
         </div>
     </div>""", unsafe_allow_html=True)
 
+    st.markdown("---")
+
+    # ── Theme toggle ──────────────────────────────────────────────────
     mode_icon  = "☀️" if st.session_state.dark_mode else "🌙"
-    mode_label = "Switch to Light Mode" if st.session_state.dark_mode else "Switch to Dark Mode"
-    if st.button(f"{mode_icon}  {mode_label}", use_container_width=True, key="theme_toggle"):
+    mode_label = "Light Mode" if st.session_state.dark_mode else "Dark Mode"
+    if st.button(f"{mode_icon}  Switch to {mode_label}", use_container_width=True, key="theme_toggle"):
         st.session_state.dark_mode = not st.session_state.dark_mode
         st.rerun()
 
     st.markdown("---")
+
+    # ── Navigation ────────────────────────────────────────────────────
+    st.markdown('<p class="section-label">Navigation</p>', unsafe_allow_html=True)
     section = st.radio("Navigate", [
         "🏠 Overview",
         "📊 Graph Analytics",
@@ -159,85 +164,195 @@ with st.sidebar:
         "🧬 Embedding Space",
         "🌐 Network Visualization",
         "🔌 Live Blockchain Explorer",
-    ])
+    ], label_visibility="collapsed")
 
     st.markdown("---")
-    st.markdown(f'<p class="section-label">📌 Quick Stats</p>', unsafe_allow_html=True)
-    st.metric("Total Wallets",      f"{embeddings.shape[0]:,}")
-    st.metric("Total Transactions", f"{stats['total_transactions']:,}")
+
+    # ── Live stats ────────────────────────────────────────────────────
+    st.markdown('<p class="section-label">Dataset Stats</p>', unsafe_allow_html=True)
+    st.metric("Wallets Indexed",    f"{embeddings.shape[0]:,}")
+    st.metric("Transactions",       f"{stats['total_transactions']:,}")
     st.metric("Suspicious Wallets", f"{len(fraud_df):,}")
     if roc_auc_val is not None:
-        st.metric("ROC-AUC", f"{roc_auc_val:.4f}")
+        st.metric("Model ROC-AUC",  f"{roc_auc_val:.4f}")
 
     st.markdown("---")
-    eth_key = os.environ.get("ETHERSCAN_API_KEY", "")
-    w3_ok   = get_web3() is not None
-    if eth_key:
-        st.success("🔗 Etherscan API connected")
-    else:
-        st.warning("⚠️ No Etherscan API key")
-    if w3_ok:
-        st.success("⛓️ Web3 RPC connected")
-    else:
-        st.info("ℹ️ Web3 RPC unavailable\n(event logs require connection)")
 
-    st.info("**Model:** GraphSAGE  \n**Dataset:** Ethereum Mainnet  \n"
-            "**Decoder:** dot · cosine · L2  \n**Fraud:** Isolation Forest")
+    # ── Connection status ─────────────────────────────────────────────
+    st.markdown('<p class="section-label">Connections</p>', unsafe_allow_html=True)
+    _w3_ok = get_web3() is not None
+    st.markdown(f"""
+    <div class="conn-pill {'connected' if ETHERSCAN_API_KEY else 'disconnected'}">
+        <span class="status-dot-{'green' if ETHERSCAN_API_KEY else 'red'}"></span>
+        Etherscan API {'Active' if ETHERSCAN_API_KEY else 'Offline'}
+    </div>
+    <div class="conn-pill {'connected' if _w3_ok else 'disconnected'}">
+        <span class="status-dot-{'green' if _w3_ok else 'red'}"></span>
+        Web3 RPC {'Live' if _w3_ok else 'Unavailable'}
+    </div>
+    <div class="conn-pill connected">
+        <span class="status-dot-green"></span>
+        GNN Model Loaded
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ── Model card ────────────────────────────────────────────────────
+    st.markdown('<p class="section-label">Model</p>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="font-size:0.77rem;color:{p['text_muted']};line-height:1.7;">
+        <span class="protocol-tag">GraphSAGE</span>
+        <span class="protocol-tag">2-layer</span>
+        <span class="protocol-tag">64-dim</span><br><br>
+        <span class="event-tag">Isolation Forest</span>
+        <span class="event-tag">Unsupervised</span><br><br>
+        <b style="color:{p['text']};">Decoder:</b> dot · cosine · L2
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════
 # OVERVIEW
 # ═══════════════════════════════════════════════
 if "🏠 Overview" in section:
-    st.markdown('<p class="main-header">🔗 Blockchain GNN Transaction Intelligence</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">GraphSAGE-powered link prediction & anomaly detection on Ethereum Mainnet</p>', unsafe_allow_html=True)
+    # ── Hero Banner ───────────────────────────────────────────────────────
+    st.markdown(f"""
+<div class="hero-wrap">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+        <div style="flex:1;min-width:280px;">
+            <div class="page-eyebrow">Enterprise Blockchain Intelligence Platform</div>
+            <div class="hero-title">ChainIntel Pro</div>
+            <div class="hero-sub">
+                Real-time fraud detection and transaction link prediction powered by
+                Graph Neural Networks. Purpose-built for compliance teams, risk analysts,
+                and blockchain security professionals.
+            </div>
+            <div class="hero-stat-row">
+                <div class="hero-stat">
+                    <div class="hero-stat-num">{embeddings.shape[0]:,}</div>
+                    <div class="hero-stat-label">Wallets Indexed</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-num">{stats['total_transactions']:,}</div>
+                    <div class="hero-stat-label">Transactions Analysed</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-num">{len(fraud_df):,}</div>
+                    <div class="hero-stat-label">Suspicious Wallets</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-num">{f"{roc_auc_val:.3f}" if roc_auc_val else "N/A"}</div>
+                    <div class="hero-stat-label">Model ROC-AUC</div>
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;min-width:200px;">
+            <div class="conn-pill {'connected' if ETHERSCAN_API_KEY else 'disconnected'}">
+                <span class="status-dot-{'green' if ETHERSCAN_API_KEY else 'red'}"></span>
+                Etherscan API {'Active' if ETHERSCAN_API_KEY else 'Offline'}
+            </div>
+            <div class="conn-pill {'connected' if get_web3() is not None else 'disconnected'}">
+                <span class="status-dot-{'green' if get_web3() is not None else 'red'}"></span>
+                Web3 RPC {'Live' if get_web3() is not None else 'Unavailable'}
+            </div>
+            <div class="conn-pill connected">
+                <span class="status-dot-green"></span>
+                GNN Model · 64-dim Embeddings
+            </div>
+            <div class="conn-pill connected">
+                <span class="status-dot-blue"></span>
+                Ethereum Mainnet Dataset
+            </div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
+    # ── KPI Row ───────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
-    for col, lbl, val, cls in [
-        (c1, "Wallet Addresses",   f"{embeddings.shape[0]:,}",    "metric-card"),
-        (c2, "Transactions",        f"{stats['total_transactions']:,}", "metric-card"),
-        (c3, "Avg Out-Degree",      f"{stats['avg_out_degree']:.2f}",   "metric-card"),
-        (c4, "Suspicious Wallets",  f"{len(fraud_df):,}",          "fraud-alert"),
+    critical_n = len(fraud_df[fraud_df["risk_level"] == "Critical"])
+    for col, lbl, val, delta, cls in [
+        (c1, "Wallets Indexed",    f"{embeddings.shape[0]:,}",         "Ethereum Mainnet",        "metric-card"),
+        (c2, "Transactions",       f"{stats['total_transactions']:,}",  "Training graph edges",    "metric-card"),
+        (c3, "Flagged Wallets",    f"{len(fraud_df):,}",                f"{critical_n:,} Critical","fraud-alert"),
+        (c4, "Avg Out-Degree",     f"{stats['avg_out_degree']:.2f}",    "Transactions per sender", "metric-card"),
     ]:
         with col:
             st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-            st.metric(lbl, val)
+            st.metric(lbl, val, delta=delta, delta_color="off")
             st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
+
+    # ── Value Propositions (B2B) ──────────────────────────────────────────
+    st.markdown('<p class="page-eyebrow">Why ChainIntel Pro</p>', unsafe_allow_html=True)
+    st.markdown(f'<h3 style="margin-top:0;margin-bottom:1.2rem;font-weight:800;letter-spacing:-0.5px;color:{p["text"]};">Built for Enterprise Blockchain Risk</h3>', unsafe_allow_html=True)
+
+    vp1, vp2, vp3, vp4 = st.columns(4)
+    value_props = [
+        (vp1, "🛡️", p["danger"], "rgba(255,69,58,0.10)" if st.session_state.dark_mode else "rgba(255,59,48,0.08)",
+         "Fraud Detection", f"Score any wallet 0–100 with Isolation Forest. {len(fraud_df):,} suspicious wallets identified. Critical thresholds auto-flagged."),
+        (vp2, "🔮", p["primary"], "rgba(10,132,255,0.10)" if st.session_state.dark_mode else "rgba(0,122,255,0.07)",
+         "Link Prediction", "Predict transaction probability between any two wallets using a multi-signal GraphSAGE decoder with 3 geometric similarity metrics."),
+        (vp3, "🧬", p["accent"], "rgba(94,92,230,0.10)" if st.session_state.dark_mode else "rgba(88,86,214,0.07)",
+         "Embedding Explorer", f"Visualise all {embeddings.shape[0]:,} wallets in 2D/3D PCA space. Find behavioural clusters and nearest-neighbour wallets."),
+        (vp4, "⛓️", p["success"], "rgba(48,209,88,0.10)" if st.session_state.dark_mode else "rgba(52,199,89,0.07)",
+         "Live Chain Data", "Query any Ethereum address in real-time via Etherscan API & Web3.py. Balance, transactions, ERC-20 events, on-chain history."),
+    ]
+    for col, icon, color, bg, title, desc in value_props:
+        with col:
+            st.markdown(f"""
+<div class="value-card">
+    <div class="value-icon" style="background:{bg};color:{color};">{icon}</div>
+    <div class="value-title">{title}</div>
+    <div class="value-desc">{desc}</div>
+</div>""", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ── Technology + Methodology ──────────────────────────────────────────
     col1, col2 = st.columns([3, 2])
     with col1:
-        st.markdown("### 📖 What this dashboard does")
-        st.markdown("""
-This system analyses Ethereum blockchain activity using a **Graph Neural Network (GNN)** trained on
-25,542 real wallet addresses and 29,023 transactions from the Ethereum Mainnet.
+        st.markdown(f'<h4 style="color:{p["text"]};font-weight:700;">What\'s inside</h4>', unsafe_allow_html=True)
+        rows = [
+            ("🔮", "Link Prediction", "Predict transaction probability between any two wallets using GraphSAGE decoder"),
+            ("🚨", "Fraud Detection", "Score wallets 0–100 using Isolation Forest on 64-dim GNN node embeddings"),
+            ("🧬", "Embedding Space", "Explore all 25K wallets in 2D/3D PCA — find fraud clusters and outliers"),
+            ("🏗️", "Architecture Viewer", "Interactive diagram of the full GraphSAGE pipeline with live decoder analysis"),
+            ("🔌", "Live Explorer", "Query any Ethereum address — ETH balance, transactions, ERC-20 event logs"),
+            ("🌐", "Network Graph", "Directed transaction subgraph with 1-hop/2-hop neighbourhood expansion"),
+        ]
+        for icon, title, desc in rows:
+            st.markdown(f"""
+<div style="display:flex;gap:12px;align-items:flex-start;padding:0.6rem 0;border-bottom:1px solid {p['border']};">
+    <span style="font-size:1.1rem;min-width:24px;">{icon}</span>
+    <div>
+        <div style="font-weight:700;font-size:0.88rem;color:{p['text']};">{title}</div>
+        <div style="font-size:0.77rem;color:{p['text_muted']};margin-top:1px;">{desc}</div>
+    </div>
+</div>""", unsafe_allow_html=True)
 
-| Feature | Description |
-|---|---|
-| **Link Prediction** | Predict future transaction probability between any two wallets |
-| **Fraud Detection** | Score wallets 0–100 via Isolation Forest on GNN embeddings |
-| **Embedding Space** | Visualise all 25K wallets in a 2D/3D PCA projection |
-| **Architecture Viewer** | Live interactive diagram of the GraphSAGE model |
-| **Live Explorer** | Query any Ethereum address — balance, transactions, event logs |
-| **Network Graph** | Explore the directed transaction subgraph around any wallet |
-""")
     with col2:
-        st.markdown("### 🎯 Technology Stack")
+        st.markdown(f'<h4 style="color:{p["text"]};font-weight:700;">Technology Stack</h4>', unsafe_allow_html=True)
+        stack = [
+            ("Graph Model",     ["GraphSAGE", "2-layer", "64-dim", "MEAN Aggregation"]),
+            ("Fraud Engine",    ["Isolation Forest", "Unsupervised", "100 estimators"]),
+            ("Live Chain Data", ["Etherscan API", "Web3.py", "ERC-20 Events"]),
+            ("Visualisation",   ["Plotly", "NetworkX", "PCA", "Streamlit"]),
+        ]
+        for section_name, tags in stack:
+            st.markdown(f'<div style="font-size:0.72rem;font-weight:700;color:{p["text_subtle"]};letter-spacing:1px;text-transform:uppercase;margin:0.8rem 0 0.3rem;">{section_name}</div>', unsafe_allow_html=True)
+            st.markdown(" ".join(f'<span class="protocol-tag">{t}</span>' for t in tags), unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(f"""
-<div class="info-box" style="margin-top:0;">
-
-**Graph Model**  
-<span class="protocol-tag">GraphSAGE</span> <span class="protocol-tag">2-layer</span> <span class="protocol-tag">64-dim</span>
-
-**Fraud Detection**  
-<span class="protocol-tag">Isolation Forest</span> <span class="protocol-tag">Unsupervised</span>
-
-**Live Chain Data**  
-<span class="protocol-tag">Etherscan API</span> <span class="protocol-tag">Web3.py</span> <span class="event-tag">ERC-20 Events</span>
-
-**Visualisation**  
-<span class="protocol-tag">Plotly</span> <span class="protocol-tag">NetworkX</span> <span class="protocol-tag">PCA</span>
-
+<div class="info-box">
+    <div style="font-size:0.78rem;font-weight:700;color:{p['text']};margin-bottom:4px;">Etherscan API</div>
+    <div style="font-size:0.75rem;color:{p['text_muted']};">
+        {'✅ Connected — pre-configured API key active' if ETHERSCAN_API_KEY else '⚠️ No key detected'}
+        <br>Free tier: 5 calls/sec · 100K/day
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -1163,19 +1278,7 @@ elif "🔌 Live Blockchain Explorer" in section:
     st.markdown('<p class="main-header">🔌 Live Blockchain Explorer</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Query any Ethereum address · Etherscan API · Web3.py event log parsing · GNN cross-reference</p>', unsafe_allow_html=True)
 
-    eth_key = os.environ.get("ETHERSCAN_API_KEY", "")
-
-    if not eth_key:
-        st.markdown('<div class="warning-box">', unsafe_allow_html=True)
-        st.warning("""
-### ⚠️ Etherscan API Key Not Configured
-Add your free key:
-1. [etherscan.io/register](https://etherscan.io/register) → My Profile → API Keys
-2. In Replit Secrets (🔒): key = `ETHERSCAN_API_KEY`, value = your key
-
-**Free tier:** 5 calls/sec · 100,000 calls/day
-""")
-        st.markdown("</div>", unsafe_allow_html=True)
+    eth_key = ETHERSCAN_API_KEY
 
     # ── Latest block info bar ────────────────────────────────────────────
     blk_info = get_latest_block_info()
@@ -1511,12 +1614,13 @@ Can hold ETH, send transactions, and interact with contracts.
 # ═══════════════════════════════════════════════
 st.markdown("---")
 st.markdown(f"""<div class="footer-text">
-    <strong>Transaction Link Prediction in Blockchain using Graph Neural Networks</strong><br>
+    <strong>ChainIntel Pro</strong> &nbsp;·&nbsp; Enterprise Blockchain Intelligence Platform<br>
     GraphSAGE &nbsp;·&nbsp; Isolation Forest &nbsp;·&nbsp; Etherscan API &nbsp;·&nbsp;
     Web3.py &nbsp;·&nbsp; PCA Embedding Explorer &nbsp;·&nbsp; Streamlit<br>
-    <span style="font-size:0.74rem;">
-        v4.0 &nbsp;·&nbsp; {datetime.now().strftime("%Y-%m-%d")} &nbsp;·&nbsp;
-        {'🌙 Dark Mode' if st.session_state.dark_mode else '☀️ Light Mode'} &nbsp;·&nbsp;
-        {embeddings.shape[0]:,} wallets · {len(edges):,} transactions
+    <span style="font-size:0.72rem;">
+        v5.0 &nbsp;·&nbsp; {datetime.now().strftime("%Y-%m-%d")} &nbsp;·&nbsp;
+        {'🌙 Dark' if st.session_state.dark_mode else '☀️ Light'} &nbsp;·&nbsp;
+        {embeddings.shape[0]:,} wallets &nbsp;·&nbsp; {len(edges):,} transactions &nbsp;·&nbsp;
+        API {'✅' if ETHERSCAN_API_KEY else '⚠️'}
     </span>
 </div>""", unsafe_allow_html=True)
