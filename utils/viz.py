@@ -23,6 +23,8 @@ def _p(dark: bool) -> dict:
 def plot_loss_curve(loss_history: np.ndarray, dark: bool = True) -> go.Figure:
     p = _p(dark)
     epochs = list(range(1, len(loss_history) + 1))
+    best_epoch = int(np.argmin(loss_history)) + 1
+    best_loss  = float(loss_history[best_epoch - 1])
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=epochs, y=loss_history, mode="lines", name="Training Loss",
@@ -30,17 +32,36 @@ def plot_loss_curve(loss_history: np.ndarray, dark: bool = True) -> go.Figure:
         fill="tozeroy",
         fillcolor=f"rgba({'88,166,255' if dark else '9,105,218'},0.07)",
     ))
+    # Best epoch marker
+    fig.add_trace(go.Scatter(
+        x=[best_epoch], y=[best_loss],
+        mode="markers", name=f"Best (epoch {best_epoch})",
+        marker=dict(color=p["success"], size=10, symbol="star",
+                    line=dict(color=p["bg"], width=1.5)),
+    ))
+    # Final epoch annotation
     fig.add_annotation(
         x=epochs[-1], y=float(loss_history[-1]),
-        text=f"Final: {loss_history[-1]:.4f}",
-        showarrow=True, arrowhead=2, ax=-60, ay=-30,
+        text=f"Final: {loss_history[-1]:.1f}",
+        showarrow=True, arrowhead=2, ax=-55, ay=-30,
         font=dict(color=p["primary"], size=11),
+        bgcolor=p["card"], bordercolor=p["border"], borderwidth=1,
+    )
+    # Best epoch annotation
+    fig.add_annotation(
+        x=best_epoch, y=best_loss,
+        text=f"Best: {best_loss:.1f}",
+        showarrow=True, arrowhead=2, ax=40, ay=-35,
+        font=dict(color=p["success"], size=11),
+        bgcolor=p["card"], bordercolor=p["success"], borderwidth=1,
     )
     fig.update_layout(
-        title="GNN Training Loss", xaxis_title="Epoch", yaxis_title="Loss",
+        title="GNN Training Loss (GraphSAGE)",
+        xaxis_title="Epoch", yaxis_title="Loss",
         hovermode="x unified", template=p["plotly"], height=360,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(t=40, b=40, l=40, r=20),
+        legend=dict(orientation="h", yanchor="top", y=1.08, xanchor="right", x=1),
     )
     return fig
 
@@ -52,21 +73,35 @@ def plot_roc_curve(fpr, tpr, auc_score: float, dark: bool = True) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=fpr, y=tpr, mode="lines",
-        name=f"ROC (AUC = {auc_score:.3f})",
+        name=f"Isolation Forest (AUC = {auc_score:.4f})",
         line=dict(color=p["primary"], width=2.5),
         fill="tozeroy",
-        fillcolor=f"rgba({'88,166,255' if dark else '9,105,218'},0.08)",
+        fillcolor=f"rgba({'88,166,255' if dark else '9,105,218'},0.10)",
     ))
     fig.add_trace(go.Scatter(
         x=[0, 1], y=[0, 1], mode="lines",
-        name="Random", line=dict(color=p["text_muted"], width=1.5, dash="dash"),
+        name="Random classifier",
+        line=dict(color=p["text_muted"], width=1.5, dash="dash"),
     ))
+    # AUC label at top-left
+    fig.add_annotation(
+        x=0.55, y=0.12, xref="paper", yref="paper",
+        text=f"AUC = {auc_score:.4f}",
+        showarrow=False,
+        font=dict(color=p["success"] if auc_score >= 0.9 else p["warning"], size=14, family="JetBrains Mono, monospace"),
+        bgcolor=p["card"], bordercolor=p["border"], borderwidth=1,
+        borderpad=6,
+    )
     fig.update_layout(
-        title="ROC Curve — Link Prediction",
-        xaxis_title="False Positive Rate", yaxis_title="True Positive Rate",
+        title="ROC Curve — Isolation Forest Fraud Detector",
+        xaxis_title="False Positive Rate",
+        yaxis_title="True Positive Rate",
+        xaxis=dict(range=[0, 1], constrain="domain"),
+        yaxis=dict(range=[0, 1], scaleanchor="x"),
         template=p["plotly"], height=360,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(t=40, b=40, l=40, r=20),
+        legend=dict(orientation="h", yanchor="top", y=1.08, xanchor="right", x=1),
     )
     return fig
 
