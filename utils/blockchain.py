@@ -12,9 +12,17 @@ import streamlit as st
 logger = logging.getLogger(__name__)
 
 ETHERSCAN_BASE = "https://api.etherscan.io/api"
-DEFAULT_RPC    = "https://eth.mainnet.public.blastapi.io"
 
-# ── API key resolution ─────────────────────────────────────────────────────
+# ── Web3 RPC resolution ────────────────────────────────────────────────────
+# Priority: WEB3_PROVIDER_URL env var → Alchemy built-in fallback → public BlastAPI
+_ALCHEMY_FALLBACK = "https://eth-mainnet.g.alchemy.com/v2/__8lcM37--rvGg-AFxeO6"
+_PUBLIC_RPC       = "https://eth.mainnet.public.blastapi.io"
+DEFAULT_RPC: str  = (
+    os.environ.get("WEB3_PROVIDER_URL")
+    or _ALCHEMY_FALLBACK
+)
+
+# ── Etherscan API key resolution ───────────────────────────────────────────
 # Priority: ETHERSCAN_API_KEY secret → ETHERSCAN_API_KEY_DEFAULT env var → built-in fallback
 _BUILTIN_FALLBACK = "41NENJ1WX2RNDWTFIFUJXSNECMQ8P9KB45"
 ETHERSCAN_API_KEY: str = (
