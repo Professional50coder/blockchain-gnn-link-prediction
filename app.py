@@ -33,7 +33,7 @@ import streamlit.components.v1 as components
 from utils.viz import (
     plot_loss_curve, plot_roc_curve, plot_fraud_distribution,
     create_network_subgraph, plot_pca_embeddings,
-    plot_architecture_diagram, plot_decoder_signals,
+    plot_decoder_signals,
     plot_transaction_timeline, plot_event_log_chart,
     plot_degree_distributions, render_architecture_animation,
 )
@@ -253,9 +253,9 @@ if "🏠 Overview" in section:
                 <span class="status-dot-{'green' if ETHERSCAN_API_KEY else 'red'}"></span>
                 Etherscan API {'Active' if ETHERSCAN_API_KEY else 'Offline'}
             </div>
-            <div class="conn-pill {'connected' if get_web3() is not None else 'disconnected'}">
-                <span class="status-dot-{'green' if get_web3() is not None else 'red'}"></span>
-                Web3 RPC {'Live' if get_web3() is not None else 'Unavailable'}
+            <div class="conn-pill {'connected' if _w3_ok else 'disconnected'}">
+                <span class="status-dot-{'green' if _w3_ok else 'red'}"></span>
+                Web3 RPC {'Live' if _w3_ok else 'Unavailable'}
             </div>
             <div class="conn-pill connected">
                 <span class="status-dot-green"></span>
@@ -658,11 +658,11 @@ elif "🚨 Fraud Detection" in section:
         f'border-radius:12px;padding:0.75rem 1.2rem;margin-bottom:0.8rem;display:flex;'
         f'align-items:center;gap:1.5rem;flex-wrap:wrap;">'
         f'<span style="font-size:0.9rem;font-weight:600;color:{p["danger"]};">🚨 Threat Summary</span>'
-        f'<span style="font-size:0.83rem;color:{p["text_primary"]};">'
+        f'<span style="font-size:0.83rem;color:{p["text"]};">'
         f'<b>{len(fraud_df):,}</b> of <b>{_total_wallets:,}</b> wallets flagged '
         f'<span style="color:{p["text_muted"]};">({_flagged_pct}% of network)</span></span>'
         f'<span style="font-size:0.83rem;color:{p["text_muted"]};">'
-        f'·  Avg risk score: <b style="color:' + p["text_primary"] + f';">{_avg_score}</b></span>'
+        f'·  Avg risk score: <b style="color:' + p["text"] + f';">{_avg_score}</b></span>'
         f'<span style="font-size:0.83rem;color:{p["text_muted"]};">'
         f'·  Highest score: <b style="color:' + p["danger"] + f';">{_max_score}/100</b> '
         f'(wallet #{_top_fraud_id})</span>'
@@ -1270,7 +1270,7 @@ elif "🧬 Embedding Space" in section:
 
     if run_pca or "pca_coords" not in st.session_state or st.session_state.get("pca_sample") != sample_size:
         with st.spinner(f"Computing PCA on {sample_size:,} wallet embeddings…"):
-            n_comp = 3 if mode_3d else 3
+            n_comp = 3
             coords, sampled_ids, var_ratio = _pca_coords(embeddings, sample_size, n_comp)
             st.session_state["pca_coords"]   = coords
             st.session_state["pca_ids"]      = sampled_ids
