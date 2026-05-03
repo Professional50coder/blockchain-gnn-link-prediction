@@ -1419,9 +1419,8 @@ elif "🔌 Live Blockchain Explorer" in section:
                         if get_web3() is None:
                             st.markdown('<div class="warning-box">', unsafe_allow_html=True)
                             st.warning("""
-**Web3 RPC unavailable.** The app uses a free public RPC endpoint 
-(`eth.mainnet.public.blastapi.io`) which may be temporarily down.  
-Set `WEB3_PROVIDER_URL` in Replit Secrets with a private Infura / Alchemy endpoint for reliable access.
+**Web3 RPC unavailable.** Could not connect to the Alchemy endpoint.  
+Check that `WEB3_PROVIDER_URL` is set correctly in Replit Secrets, or try refreshing.
 """)
                             st.markdown("</div>", unsafe_allow_html=True)
                         else:
