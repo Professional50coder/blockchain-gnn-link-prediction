@@ -5,6 +5,7 @@ stack = "BEST_EFFORT_FALLBACK"
 
 [nix]
 channel = "stable-25_05"
+packages = ["cairo", "ffmpeg-full", "firefox", "freetype", "geckodriver", "ghostscript", "glibcLocales", "gobject-introspection", "gtk3", "libjpeg_turbo", "libpng", "libxcrypt", "nodejs", "ocl-icd", "opencl-headers", "pkg-config", "qhull", "tcl", "tk", "which", "xsimd"]
 
 [workflows]
 runButton = "Project"
@@ -37,3 +38,8 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["streamlit", "run", "app.py"]
+
+[userenv]
+
+[userenv.shared]
+ETHERSCAN_API_KEY_DEFAULT = "41NENJ1WX2RNDWTFIFUJXSNECMQ8P9KB45"
