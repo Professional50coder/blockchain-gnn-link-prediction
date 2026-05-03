@@ -1,0 +1,125 @@
+2026-05-03 10:07:15.407 Uvicorn server started on 0.0.0.0:5000
+[0m
+[34m[1m  You can now view your Streamlit app in your browser.[0m
+[0m
+[34m  Local URL: [0m[1mhttp://localhost:5000[0m
+[34m  Network URL: [0m[1mhttp://172.31.92.194:5000[0m
+[34m  External URL: [0m[1mhttp://34.93.17.228:5000[0m
+[0m
+2026-05-03 10:09:44.402 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:09:44.407 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:09:44.494 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:09:44.496 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:09:44.512 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+[31m──[0m[31m────────────────────────[0m[31m [0m[1;31mTraceback [0m[1;2;31m(most recent call last)[0m[31m [0m[31m─────────────────────────[0m[31m──[0m
+[31m [0m [2m/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/sc[0m [31m [0m
+[31m [0m [2mriptrunner/[0m[1mexec_code.py[0m:129 in exec_func_with_error_handling                         [31m [0m
+[31m [0m                                                                                      [31m [0m
+[31m [0m [2m/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/sc[0m [31m [0m
+[31m [0m [2mriptrunner/[0m[1mscript_runner.py[0m:689 in code_to_exec                                      [31m [0m
+[31m [0m                                                                                      [31m [0m
+[31m [0m [2m/home/runner/workspace/[0m[1mapp.py[0m:660 in <module>                                        [31m [0m
+[31m [0m                                                                                      [31m [0m
+[31m [0m   [2m 657 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33mborder-radius:12px;padding:0.75rem 1.2rem;margin-bottom:0.8rem;disp[0m [31m [0m
+[31m [0m   [2m 658 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33malign-items:center;gap:1.5rem;flex-wrap:wrap;[0m[33m"[0m[33m>[0m[33m'[0m                    [31m [0m
+[31m [0m   [2m 659 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33m<span style=[0m[33m"[0m[33mfont-size:0.9rem;font-weight:600;color:[0m[33m{[0mp[[33m"[0m[33mdanger[0m[33m"[0m][33m}[0m[33m;[0m[33m"[0m [31m [0m
+[31m [0m [31m❱ [0m 660 [2m│   │   [0m[33mf[0m[33m'[0m[33m<span style=[0m[33m"[0m[33mfont-size:0.83rem;color:[0m[33m{[0m[1;4mp[[0m[1;4;33m"[0m[1;4;33mtext_primary[0m[1;4;33m"[0m[1;4m][0m[33m}[0m[33m;[0m[33m"[0m[33m>[0m[33m'[0m        [31m [0m
+[31m [0m   [2m 661 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33m<b>[0m[33m{[0m[96mlen[0m(fraud_df)[33m:[0m[33m,[0m[33m}[0m[33m</b> of <b>[0m[33m{[0m_total_wallets[33m:[0m[33m,[0m[33m}[0m[33m</b> wallets flagg[0m [31m [0m
+[31m [0m   [2m 662 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33m<span style=[0m[33m"[0m[33mcolor:[0m[33m{[0mp[[33m"[0m[33mtext_muted[0m[33m"[0m][33m}[0m[33m;[0m[33m"[0m[33m>([0m[33m{[0m_flagged_pct[33m}[0m[33m% of network)[0m [31m [0m
+[31m [0m   [2m 663 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33m<span style=[0m[33m"[0m[33mfont-size:0.83rem;color:[0m[33m{[0mp[[33m"[0m[33mtext_muted[0m[33m"[0m][33m}[0m[33m;[0m[33m"[0m[33m>[0m[33m'[0m          [31m [0m
+[31m────────────────────────────────────────────────────────────────────────────────────────[0m
+[1;91mKeyError: [0m[32m'text_primary'[0m
+2026-05-03 10:11:15.372 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:11:15.400 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:11:15.427 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:11:31.405 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:11:59.970 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:11:59.998 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:12:41.122 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:12:41.124 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:12:41.211 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:12:41.213 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-05-03 10:12:41.226 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+[31m──[0m[31m────────────────────────[0m[31m [0m[1;31mTraceback [0m[1;2;31m(most recent call last)[0m[31m [0m[31m─────────────────────────[0m[31m──[0m
+[31m [0m [2m/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/sc[0m [31m [0m
+[31m [0m [2mriptrunner/[0m[1mexec_code.py[0m:129 in exec_func_with_error_handling                         [31m [0m
+[31m [0m                                                                                      [31m [0m
+[31m [0m [2m/home/runner/workspace/.pythonlibs/lib/python3.12/site-packages/streamlit/runtime/sc[0m [31m [0m
+[31m [0m [2mriptrunner/[0m[1mscript_runner.py[0m:689 in code_to_exec                                      [31m [0m
+[31m [0m                                                                                      [31m [0m
+[31m [0m [2m/home/runner/workspace/[0m[1mapp.py[0m:660 in <module>                                        [31m [0m
+[31m [0m                                                                                      [31m [0m
+[31m [0m   [2m 657 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33mborder-radius:12px;padding:0.75rem 1.2rem;margin-bottom:0.8rem;disp[0m [31m [0m
+[31m [0m   [2m 658 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33malign-items:center;gap:1.5rem;flex-wrap:wrap;[0m[33m"[0m[33m>[0m[33m'[0m                    [31m [0m
+[31m [0m   [2m 659 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33m<span style=[0m[33m"[0m[33mfont-size:0.9rem;font-weight:600;color:[0m[33m{[0mp[[33m"[0m[33mdanger[0m[33m"[0m][33m}[0m[33m;[0m[33m"[0m [31m [0m
+[31m [0m [31m❱ [0m 660 [2m│   │   [0m[33mf[0m[33m'[0m[33m<span style=[0m[33m"[0m[33mfont-size:0.83rem;color:[0m[33m{[0m[1;4mp[[0m[1;4;33m"[0m[1;4;33mtext_primary[0m[1;4;33m"[0m[1;4m][0m[33m}[0m[33m;[0m[33m"[0m[33m>[0m[33m'[0m        [31m [0m
+[31m [0m   [2m 661 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33m<b>[0m[33m{[0m[96mlen[0m(fraud_df)[33m:[0m[33m,[0m[33m}[0m[33m</b> of <b>[0m[33m{[0m_total_wallets[33m:[0m[33m,[0m[33m}[0m[33m</b> wallets flagg[0m [31m [0m
+[31m [0m   [2m 662 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33m<span style=[0m[33m"[0m[33mcolor:[0m[33m{[0mp[[33m"[0m[33mtext_muted[0m[33m"[0m][33m}[0m[33m;[0m[33m"[0m[33m>([0m[33m{[0m_flagged_pct[33m}[0m[33m% of network)[0m [31m [0m
+[31m [0m   [2m 663 [0m[2m│   │   [0m[33mf[0m[33m'[0m[33m<span style=[0m[33m"[0m[33mfont-size:0.83rem;color:[0m[33m{[0mp[[33m"[0m[33mtext_muted[0m[33m"[0m][33m}[0m[33m;[0m[33m"[0m[33m>[0m[33m'[0m          [31m [0m
+[31m────────────────────────────────────────────────────────────────────────────────────────[0m
+[1;91mKeyError: [0m[32m'text_primary'[0m
+[34m  Stopping...[0m
