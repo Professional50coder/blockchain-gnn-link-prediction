@@ -646,23 +646,48 @@ elif "🚨 Fraud Detection" in section:
     high_count     = len(fraud_df[fraud_df["risk_level"] == "High"])
     med_count      = len(fraud_df[fraud_df["risk_level"] == "Medium"])
     low_count      = len(fraud_df[fraud_df["risk_level"] == "Low"])
+    _total_wallets = embeddings.shape[0]
+    _flagged_pct   = round(len(fraud_df) / _total_wallets * 100, 2)
+    _avg_score     = round(float(fraud_df["risk_score"].mean()), 1)
+    _max_score     = round(float(fraud_df["risk_score"].max()), 1)
+    _top_fraud_id  = int(fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"])
+
+    st.markdown(
+        f'<div style="background:rgba(248,81,73,0.08);border:1px solid rgba(248,81,73,0.25);'
+        f'border-radius:12px;padding:0.75rem 1.2rem;margin-bottom:0.8rem;display:flex;'
+        f'align-items:center;gap:1.5rem;flex-wrap:wrap;">'
+        f'<span style="font-size:0.9rem;font-weight:600;color:{p["danger"]};">🚨 Threat Summary</span>'
+        f'<span style="font-size:0.83rem;color:{p["text_primary"]};">'
+        f'<b>{len(fraud_df):,}</b> of <b>{_total_wallets:,}</b> wallets flagged '
+        f'<span style="color:{p["text_muted"]};">({_flagged_pct}% of network)</span></span>'
+        f'<span style="font-size:0.83rem;color:{p["text_muted"]};">'
+        f'·  Avg risk score: <b style="color:' + p["text_primary"] + f';">{_avg_score}</b></span>'
+        f'<span style="font-size:0.83rem;color:{p["text_muted"]};">'
+        f'·  Highest score: <b style="color:' + p["danger"] + f';">{_max_score}/100</b> '
+        f'(wallet #{_top_fraud_id})</span>'
+        f'</div>',
+        unsafe_allow_html=True)
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown('<div class="fraud-alert">', unsafe_allow_html=True)
-        st.metric("Critical", f"{critical_count:,}")
+        st.metric("🔴 Critical (≥80)", f"{critical_count:,}",
+                  help="Risk score ≥ 80 — highest-priority wallets")
         st.markdown("</div>", unsafe_allow_html=True)
     with c2:
         st.markdown('<div class="warning-box">', unsafe_allow_html=True)
-        st.metric("High", f"{high_count:,}")
+        st.metric("🟠 High (60–79)", f"{high_count:,}",
+                  help="Risk score 60–79 — investigate promptly")
         st.markdown("</div>", unsafe_allow_html=True)
     with c3:
         st.markdown('<div class="warning-box">', unsafe_allow_html=True)
-        st.metric("Medium", f"{med_count:,}")
+        st.metric("🟡 Medium (35–59)", f"{med_count:,}",
+                  help="Risk score 35–59 — monitor activity")
         st.markdown("</div>", unsafe_allow_html=True)
     with c4:
         st.markdown('<div class="success-box">', unsafe_allow_html=True)
-        st.metric("Low", f"{low_count:,}")
+        st.metric("🟢 Low (0–34)", f"{low_count:,}",
+                  help="Risk score 0–34 — anomalous but low priority")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
@@ -694,18 +719,38 @@ elif "🚨 Fraud Detection" in section:
         filtered = filtered[filtered["risk_level"] == filter_risk]
     filtered = filtered.sort_values("risk_score", ascending=False).head(max_rows)
 
-    show_cols = {"wallet_id": "Wallet ID", "fraud_score": "Raw IF Score",
-                 "risk_score": "Risk Score (0–100)", "risk_level": "Risk Level"}
-    if "wallet_address" in filtered.columns:
+    _RISK_BADGE = {"Critical": "🔴 Critical", "High": "🟠 High",
+                   "Medium": "🟡 Medium",   "Low":  "🟢 Low"}
+    _disp_filtered = filtered.copy()
+    _disp_filtered["risk_badge"] = _disp_filtered["risk_level"].map(_RISK_BADGE)
+    show_cols = {"wallet_id": "Wallet ID", "risk_score": "Risk Score",
+                 "risk_badge": "Risk Level", "fraud_score": "IF Score (raw)"}
+    if "wallet_address" in _disp_filtered.columns:
         show_cols = {"wallet_address": "Wallet Address", **show_cols}
-    disp = filtered[[c for c in show_cols if c in filtered.columns]].rename(columns=show_cols)
+    disp = _disp_filtered[[c for c in show_cols if c in _disp_filtered.columns]].rename(columns=show_cols)
     st.dataframe(disp, use_container_width=True, height=400,
                  column_config={
-                     "Wallet Address":    st.column_config.TextColumn("Wallet Address", width="large"),
-                     "Risk Score (0–100)":st.column_config.NumberColumn("Risk Score",   format="%.1f"),
+                     "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
+                     "Risk Score":     st.column_config.ProgressColumn("Risk Score", min_value=0, max_value=100,
+                                                                        format="%.1f"),
+                     "Risk Level":     st.column_config.TextColumn("Risk Level",  width="medium"),
+                     "IF Score (raw)": st.column_config.NumberColumn("IF Score (raw)",
+                                                                      format="%.5f",
+                                                                      help="Raw Isolation Forest anomaly score — "
+                                                                           "more negative = more anomalous. "
+                                                                           "Rescaled to 0–100 for Risk Score."),
                  })
-    st.download_button("⬇️ Export Fraud Report", disp.to_csv(index=False),
-                       file_name="fraud_report.csv", mime="text/csv")
+    sc1, sc2 = st.columns([1, 3])
+    with sc1:
+        st.download_button("⬇️ Export Fraud Report", disp.to_csv(index=False),
+                           file_name="fraud_report.csv", mime="text/csv",
+                           use_container_width=True)
+    with sc2:
+        st.markdown(
+            f'<p style="color:{p["text_muted"]};font-size:0.78rem;padding-top:0.6rem;">'
+            f'Risk Score bar = 0–100 · IF Score (raw) is the Isolation Forest anomaly score '
+            f'(all values are negative; more negative → more anomalous → higher Risk Score)</p>',
+            unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### 🕵️ Investigate Specific Wallet")
@@ -713,8 +758,9 @@ elif "🚨 Fraud Detection" in section:
     with ic1:
         wid_input = st.number_input("Wallet ID", min_value=0,
                                     max_value=int(embeddings.shape[0]-1),
-                                    value=int(st.session_state.get("_inv_wallet", 0)),
-                                    key="inv_wallet_id")
+                                    value=int(st.session_state.get("_inv_wallet", _top_fraud_id)),
+                                    key="inv_wallet_id",
+                                    help=f"Default = wallet #{_top_fraud_id} (highest risk score in dataset)")
     with ic2:
         if st.button("🚨 Top Suspicious", use_container_width=True):
             st.session_state["_inv_wallet"] = int(fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"])
@@ -784,7 +830,8 @@ elif "🚨 Fraud Detection" in section:
                         <div style="background:rgba(128,128,128,0.1);border-radius:999px;height:12px;overflow:hidden;">
                             <div style="width:{rs}%;height:100%;background:linear-gradient(90deg,{badge_color}88,{badge_color});border-radius:999px;"></div>
                         </div></div>""", unsafe_allow_html=True)
-                    st.metric("Raw IF Score", f"{raw_if:.6f}" if raw_if else "N/A")
+                    st.metric("IF Score (raw)", f"{raw_if:.5f}" if raw_if else "N/A",
+                              help="Isolation Forest anomaly score — more negative = more anomalous")
                 else:
                     st.success("Not flagged by the Isolation Forest model.")
             with rc2:
