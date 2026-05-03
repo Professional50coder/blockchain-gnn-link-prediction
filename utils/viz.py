@@ -110,19 +110,39 @@ def plot_roc_curve(fpr, tpr, auc_score: float, dark: bool = True) -> go.Figure:
 
 def plot_fraud_distribution(fraud_df: pd.DataFrame, dark: bool = True) -> go.Figure:
     p = _p(dark)
+    scores = fraud_df["risk_score"]
+    n_low      = int((scores < 35).sum())
+    n_medium   = int(((scores >= 35) & (scores < 60)).sum())
+    n_high     = int(((scores >= 60) & (scores < 80)).sum())
+    n_critical = int((scores >= 80).sum())
+
     fig = px.histogram(
         fraud_df, x="risk_score", nbins=50,
-        title="Risk Score Distribution (0 = safe · 100 = critical)",
-        labels={"risk_score": "Risk Score"},
+        title="Risk Score Distribution  (0 = safe · 100 = critical)",
+        labels={"risk_score": "Risk Score", "count": "Wallets"},
         color_discrete_sequence=[p["danger"]],
     )
-    for thresh, label, color in [(35, "Medium", p["warning"]), (60, "High", p["danger"]), (80, "Critical", "#ff7b72")]:
-        fig.add_vline(x=thresh, line_dash="dot", line_color=color,
+    tiers = [
+        (35, f"Medium<br><b>{n_medium}</b>", p["warning"]),
+        (60, f"High<br><b>{n_high}</b>",     p["danger"]),
+        (80, f"Critical<br><b>{n_critical}</b>", "#ff7b72"),
+    ]
+    for thresh, label, color in tiers:
+        fig.add_vline(x=thresh, line_dash="dot", line_color=color, line_width=1.5,
                       annotation_text=label, annotation_position="top right",
-                      annotation_font_color=color)
-    fig.update_layout(template=p["plotly"], height=340,
-                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                      margin=dict(t=40, b=40, l=40, r=20))
+                      annotation_font_color=color, annotation_font_size=11)
+    fig.add_annotation(
+        x=17, yref="paper", y=0.97,
+        text=f"🟢 Low<br><b>{n_low}</b>",
+        showarrow=False, font=dict(color=p["success"], size=11),
+        align="center")
+    fig.update_layout(
+        template=p["plotly"], height=340,
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(t=50, b=40, l=40, r=20),
+        xaxis=dict(title="Risk Score (0–100)", range=[-2, 102]),
+        yaxis_title="Number of Wallets",
+    )
     return fig
 
 
