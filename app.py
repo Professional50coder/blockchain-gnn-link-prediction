@@ -29,12 +29,13 @@ from utils.blockchain import (
     check_is_contract, fetch_tx_count, detect_protocols_from_txs,
     fetch_event_logs_web3, get_latest_block_info, get_web3,
 )
+import streamlit.components.v1 as components
 from utils.viz import (
     plot_loss_curve, plot_roc_curve, plot_fraud_distribution,
     create_network_subgraph, plot_pca_embeddings,
     plot_architecture_diagram, plot_decoder_signals,
     plot_transaction_timeline, plot_event_log_chart,
-    plot_degree_distributions,
+    plot_degree_distributions, render_architecture_animation,
 )
 
 # ── Logging ───────────────────────────────────────────────────────────────
@@ -1091,9 +1092,14 @@ elif "🏗️ Architecture & ML" in section:
     st.markdown('<p class="sub-header">Live interactive GraphSAGE diagram · Mathematical formulations · Decoder analysis</p>', unsafe_allow_html=True)
 
     st.markdown("### 🔭 Live Architecture Diagram")
-    st.markdown(f'<p style="color:{p["text_muted"]};font-size:0.84rem;">Hover over nodes and connections for details. Each layer box shows the operations performed on node embeddings.</p>',
-                unsafe_allow_html=True)
-    st.plotly_chart(plot_architecture_diagram(dark=st.session_state.dark_mode), use_container_width=True)
+    st.markdown(
+        f'<p style="color:{p["text_muted"]};font-size:0.84rem;">'
+        f'100 live particles flow through the GraphSAGE pipeline. '
+        f'<b>Hover</b> any layer for details. <b>Click</b> to burst 18 particles from that layer.</p>',
+        unsafe_allow_html=True)
+    components.html(
+        render_architecture_animation(dark=st.session_state.dark_mode),
+        height=540, scrolling=False)
 
     st.markdown("---")
     tab_layers, tab_math, tab_decoder, tab_fraud_ml, tab_config = st.tabs([
