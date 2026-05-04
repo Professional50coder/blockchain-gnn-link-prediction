@@ -1,1 +1,12 @@
 
+
+[theme]
+base = "dark"
+primaryColor = "#0A84FF"
+backgroundColor = "#07080F"
+secondaryBackgroundColor = "#111220"
+textColor = "#F5F5F7"
+font = "sans serif"
+
+[runner]
+fastReruns = true
