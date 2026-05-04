@@ -15,21 +15,19 @@ ETHERSCAN_BASE = "https://api.etherscan.io/v2/api"
 ETHERSCAN_CHAIN_ID = 1  # Ethereum Mainnet
 
 # ── Web3 RPC resolution ────────────────────────────────────────────────────
-# Priority: WEB3_PROVIDER_URL env var → Alchemy built-in fallback → public BlastAPI
-_ALCHEMY_FALLBACK = "https://eth-mainnet.g.alchemy.com/v2/__8lcM37--rvGg-AFxeO6"
-_PUBLIC_RPC       = "https://eth.mainnet.public.blastapi.io"
-DEFAULT_RPC: str  = (
-    os.environ.get("WEB3_PROVIDER_URL")
-    or _ALCHEMY_FALLBACK
-)
+# Priority: WEB3_PROVIDER_URL env var → rate-limited public BlastAPI endpoint
+# Set WEB3_PROVIDER_URL in your .env (or Replit Secrets) to use Alchemy/Infura.
+_PUBLIC_RPC = "https://eth.mainnet.public.blastapi.io"
+DEFAULT_RPC: str = os.environ.get("WEB3_PROVIDER_URL") or _PUBLIC_RPC
 
 # ── Etherscan API key resolution ───────────────────────────────────────────
-# Priority: ETHERSCAN_API_KEY secret → ETHERSCAN_API_KEY_DEFAULT env var → built-in fallback
-_BUILTIN_FALLBACK = "41NENJ1WX2RNDWTFIFUJXSNECMQ8P9KB45"
+# Priority: ETHERSCAN_API_KEY env var → ETHERSCAN_API_KEY_DEFAULT env var → empty
+# Without a key, Etherscan allows 5 req/s on the free tier (no key = stricter limits).
+# Get a free key at https://etherscan.io/myapikey
 ETHERSCAN_API_KEY: str = (
     os.environ.get("ETHERSCAN_API_KEY")
     or os.environ.get("ETHERSCAN_API_KEY_DEFAULT")
-    or _BUILTIN_FALLBACK
+    or ""
 )
 
 # ── ERC-20 Transfer event signature ──────────────────────────────────────
