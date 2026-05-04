@@ -13,6 +13,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -29,7 +30,6 @@ from utils.blockchain import (
     check_is_contract, fetch_tx_count, detect_protocols_from_txs,
     fetch_event_logs_web3, get_latest_block_info, get_web3,
 )
-import streamlit.components.v1 as components
 from utils.viz import (
     plot_loss_curve, plot_roc_curve, plot_fraud_distribution,
     create_network_subgraph, plot_pca_embeddings,
@@ -147,7 +147,7 @@ with st.sidebar:
     # ── Theme toggle ──────────────────────────────────────────────────
     mode_icon  = "☀️" if st.session_state.dark_mode else "🌙"
     mode_label = "Light Mode" if st.session_state.dark_mode else "Dark Mode"
-    if st.button(f"{mode_icon}  Switch to {mode_label}", use_container_width=True, key="theme_toggle"):
+    if st.button(f"{mode_icon}  Switch to {mode_label}", width='stretch', key="theme_toggle"):
         st.session_state.dark_mode = not st.session_state.dark_mode
         st.rerun()
 
@@ -171,11 +171,16 @@ with st.sidebar:
 
     # ── Live stats ────────────────────────────────────────────────────
     st.markdown('<p class="section-label">Dataset Stats</p>', unsafe_allow_html=True)
-    st.metric("Wallets Indexed",    f"{embeddings.shape[0]:,}")
-    st.metric("Transactions",       f"{stats['total_transactions']:,}")
-    st.metric("Suspicious Wallets", f"{len(fraud_df):,}")
+    st.metric("Wallets Indexed",    f"{embeddings.shape[0]:,}",
+              help="Node count |V| in GNN graph. Each wallet = 1 row in the embedding matrix ∈ ℝ^(|V|×64).")
+    st.metric("Transactions",       f"{stats['total_transactions']:,}",
+              help="Edge count |E|. Graph density ρ = |E|/(|V|·(|V|−1)). Directed edges only.")
+    st.metric("Suspicious Wallets", f"{len(fraud_df):,}",
+              help="Flagged by Isolation Forest: s(x,n) = 2^(−E[h(x)]/c(n)). "
+                   "fraud_label = −1 in source data.")
     if roc_auc_val is not None:
-        st.metric("Model ROC-AUC",  f"{roc_auc_val:.4f}")
+        st.metric("Model ROC-AUC",  f"{roc_auc_val:.4f}",
+                  help="AUC = ∫₀¹ TPR(t)dt. 1.0 = perfect separation of fraud vs clean in 64-dim space.")
 
     st.markdown("---")
 
@@ -273,15 +278,24 @@ if "🏠 Overview" in section:
     # ── KPI Row ───────────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
     critical_n = len(fraud_df[fraud_df["risk_level"] == "Critical"])
-    for col, lbl, val, delta, cls in [
-        (c1, "Wallets Indexed",    f"{embeddings.shape[0]:,}",         "Ethereum Mainnet",        "metric-card"),
-        (c2, "Transactions",       f"{stats['total_transactions']:,}",  "Training graph edges",    "metric-card"),
-        (c3, "Flagged Wallets",    f"{len(fraud_df):,}",                f"{critical_n:,} Critical","fraud-alert"),
-        (c4, "Avg Out-Degree",     f"{stats['avg_out_degree']:.2f}",    "Transactions per sender", "metric-card"),
+    for col, lbl, val, delta, cls, tip in [
+        (c1, "Wallets Indexed",    f"{embeddings.shape[0]:,}",         "Ethereum Mainnet",        "metric-card",
+         "Unique Ethereum wallet addresses (EOAs) present in the GNN training graph. "
+         "Each becomes a node with feature vector x = [in-degree, out-degree] ∈ ℝ²."),
+        (c2, "Transactions",       f"{stats['total_transactions']:,}",  "Training graph edges",    "metric-card",
+         "Directed transaction edges in the training graph. "
+         "Graph density = |E| / (|V|·(|V|−1)). Each edge represents ≥1 on-chain transfer."),
+        (c3, "Flagged Wallets",    f"{len(fraud_df):,}",                f"{critical_n:,} Critical","fraud-alert",
+         "Wallets flagged anomalous by Isolation Forest on GNN embeddings. "
+         "s(x,n) = 2^(−E[h(x)] / c(n)) where E[h(x)] is average path length to isolate x."),
+        (c4, "Avg Out-Degree",     f"{stats['avg_out_degree']:.2f}",    "Transactions per sender", "metric-card",
+         "Mean number of outgoing transactions per unique sender. "
+         "Out-degree d⁺(v) = |{(v,u) ∈ E}|. "
+         "Power-law distributed — most wallets send 1 tx, a few hubs send thousands."),
     ]:
         with col:
             st.markdown(f'<div class="{cls}">', unsafe_allow_html=True)
-            st.metric(lbl, val, delta=delta, delta_color="off")
+            st.metric(lbl, val, delta=delta, delta_color="off", help=tip)
             st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
@@ -397,41 +411,83 @@ elif "📊 Graph Analytics" in section:
     st.markdown('<p class="main-header">📊 Graph Analytics</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Degree distribution · Transaction explorer · Network topology metrics</p>', unsafe_allow_html=True)
 
+    # Math tooltip formula cards
+    st.markdown(f"""
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem;">
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">Graph Density</div>
+    <div class="formula-card-eq">ρ = |E| / (|V|·(|V|−1))</div>
+    <div class="formula-card-desc">Fraction of possible directed edges that exist. Near-zero for sparse real-world transaction graphs.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">Out-Degree d⁺(v)</div>
+    <div class="formula-card-eq">d⁺(v) = |&#123;(v,u) ∈ E&#125;|</div>
+    <div class="formula-card-desc">Number of transactions wallet v sent. Used as node feature x[1] in GNN input.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">In-Degree d⁻(v)</div>
+    <div class="formula-card-eq">d⁻(v) = |&#123;(u,v) ∈ E&#125;|</div>
+    <div class="formula-card-desc">Number of transactions wallet v received. Used as node feature x[0] in GNN input.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">GNN Node Feature</div>
+    <div class="formula-card-eq">x_v = [d⁻(v), d⁺(v)] ∈ ℝ²</div>
+    <div class="formula-card-desc">2-dimensional input feature vector per wallet — the only raw data fed to GraphSAGE.</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.markdown("#### Network")
-        st.metric("Nodes (Wallets)",   f"{embeddings.shape[0]:,}")
-        st.metric("Edges (Txs)",        f"{stats['total_transactions']:,}")
+        st.metric("Nodes (Wallets)",   f"{embeddings.shape[0]:,}",
+                  help="Total unique wallet addresses in GNN graph. |V| in graph notation.")
+        st.metric("Edges (Txs)",        f"{stats['total_transactions']:,}",
+                  help="Directed transaction edges |E|. Each edge (u→v) means wallet u sent ≥1 tx to v.")
         density = stats['total_transactions'] / (embeddings.shape[0] * (embeddings.shape[0]-1))
-        st.metric("Graph Density",      f"{density:.2e}")
-        st.metric("Active Nodes",       f"{stats['active_nodes']:,}")
+        st.metric("Graph Density",      f"{density:.2e}",
+                  help=f"ρ = |E| / (|V|·(|V|−1)) = {stats['total_transactions']:,} / ({embeddings.shape[0]:,}·{embeddings.shape[0]-1:,}). "
+                       "Ethereum transaction graphs are extremely sparse — most wallets interact with only a tiny fraction of others.")
+        st.metric("Active Nodes",       f"{stats['active_nodes']:,}",
+                  help="Wallets with at least one outgoing or incoming transaction — nodes with degree ≥ 1.")
     with c2:
         st.markdown("#### Degree")
         st.metric("Avg Out-Degree",     f"{stats['avg_out_degree']:.2f}",
-                  help="Mean out-degree over unique senders")
+                  help="Mean d⁺(v) = |{(v,u) ∈ E}| averaged over unique senders. "
+                       "Dominated by the heavy tail of hub wallets (exchanges, protocols).")
         st.metric("Avg In-Degree",      f"{stats['avg_in_degree']:.2f}",
-                  help="Mean in-degree over unique receivers")
+                  help="Mean d⁻(v) = |{(u,v) ∈ E}| averaged over unique receivers.")
         st.metric("Max Out-Degree",     f"{stats['max_out_degree']:,}",
-                  help=f"Hub wallet ID {stats['top_sender_id']}")
+                  help=f"Hub wallet #{stats['top_sender_id']} sent {stats['max_out_degree']:,} transactions — "
+                       "a Barabási–Albert power-law hub node.")
         st.metric("Max In-Degree",      f"{stats['max_in_degree']:,}",
-                  help=f"Hub wallet ID {stats['top_receiver_id']}")
+                  help=f"Hub wallet #{stats['top_receiver_id']} received {stats['max_in_degree']:,} transactions. "
+                       "Likely an exchange hot-wallet or DEX contract.")
     with c3:
         st.markdown("#### Nodes")
-        st.metric("Unique Senders",     f"{stats['unique_senders']:,}")
-        st.metric("Unique Receivers",   f"{stats['unique_receivers']:,}")
-        st.metric("Embedding Dims",     f"{embeddings.shape[1]}")
+        st.metric("Unique Senders",     f"{stats['unique_senders']:,}",
+                  help="Wallets with d⁺(v) ≥ 1 — wallets that initiated at least one outgoing transaction.")
+        st.metric("Unique Receivers",   f"{stats['unique_receivers']:,}",
+                  help="Wallets with d⁻(v) ≥ 1 — wallets that received at least one incoming transaction.")
+        st.metric("Embedding Dims",     f"{embeddings.shape[1]}",
+                  help=f"GraphSAGE output dimensionality. "
+                       f"Each wallet is represented as z_v ∈ ℝ^{embeddings.shape[1]}. "
+                       "Higher dims → more expressive but more compute.")
         st.metric("Median Out-Degree",  f"{stats['median_out_degree']:.0f}",
-                  help="50th percentile — most wallets sent exactly 1 tx")
+                  help="50th percentile of d⁺(v). Typically 1 — most wallets on Ethereum send exactly 1 transaction.")
     with c4:
         st.markdown("#### Power-Law")
         st.metric("Single-Tx Wallets",  f"{stats['single_tx_pct']:.1f}%",
-                  help=f"{stats['single_tx_senders']:,} wallets sent exactly 1 transaction")
+                  help=f"{stats['single_tx_senders']:,} wallets sent exactly 1 transaction. "
+                       "Characteristic of scale-free networks: P(k) ∝ k^(−γ) — Barabási–Albert model.")
         st.metric("Hub Senders (>10)",  f"{stats['hub_senders']:,}",
-                  help="Wallets that sent more than 10 transactions")
+                  help="Wallets with d⁺(v) > 10 — the 'rich get richer' tail of the power-law distribution. "
+                       "Often exchanges, MEV bots, or DeFi protocols.")
         st.metric("Hub Receivers (>10)",f"{stats['hub_receivers']:,}",
-                  help="Wallets that received more than 10 transactions")
+                  help="Wallets with d⁻(v) > 10. "
+                       "High in-degree can signal aggregation behaviour (e.g. Uniswap pools).")
         st.metric("Top Sender ID",      f"#{stats['top_sender_id']}",
-                  help=f"Out-degree = {stats['max_out_degree']:,}")
+                  help=f"Wallet with maximum out-degree = {stats['max_out_degree']:,}. "
+                       "This is the most active sender in the entire training dataset.")
 
     st.markdown("---")
     st.markdown("### 📊 Degree Distributions")
@@ -442,8 +498,8 @@ elif "📊 Graph Analytics" in section:
         unsafe_allow_html=True)
     fig_out, fig_in = plot_degree_distributions(edges, dark=st.session_state.dark_mode)
     col1, col2 = st.columns(2)
-    with col1: st.plotly_chart(fig_out, use_container_width=True)
-    with col2: st.plotly_chart(fig_in,  use_container_width=True)
+    with col1: st.plotly_chart(fig_out, width='stretch')
+    with col2: st.plotly_chart(fig_in,  width='stretch')
 
     # Hub wallets table
     with st.expander("🏆 Top Hub Wallets"):
@@ -465,12 +521,12 @@ elif "📊 Graph Analytics" in section:
         hc1, hc2 = st.columns(2)
         with hc1:
             st.markdown("**Top Senders (Out-Degree)**")
-            st.dataframe(out_deg_series, use_container_width=True, hide_index=True,
+            st.dataframe(out_deg_series, width='stretch', hide_index=True,
                          column_config={"Address": st.column_config.TextColumn("Address", width="large"),
                                         "Out-Degree": st.column_config.NumberColumn("Out-Degree", format="%d")})
         with hc2:
             st.markdown("**Top Receivers (In-Degree)**")
-            st.dataframe(in_deg_series, use_container_width=True, hide_index=True,
+            st.dataframe(in_deg_series, width='stretch', hide_index=True,
                          column_config={"Address": st.column_config.TextColumn("Address", width="large"),
                                         "In-Degree": st.column_config.NumberColumn("In-Degree", format="%d")})
 
@@ -495,7 +551,7 @@ elif "📊 Graph Analytics" in section:
         show["from_address"] = le.inverse_transform(show["from_id"].astype(int))
         show["to_address"]   = le.inverse_transform(show["to_id"].astype(int))
     except Exception: pass
-    st.dataframe(show, use_container_width=True,
+    st.dataframe(show, width='stretch',
                  column_config={
                      "from_address": st.column_config.TextColumn("From Address", width="large"),
                      "to_address":   st.column_config.TextColumn("To Address",   width="large"),
@@ -508,6 +564,25 @@ elif "📊 Graph Analytics" in section:
 elif "🔮 Link Prediction" in section:
     st.markdown('<p class="main-header">🔮 Transaction Link Prediction</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Predict future transaction probability · Multi-signal decoder: dot-product · cosine · L2</p>', unsafe_allow_html=True)
+
+    st.markdown(f"""
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:0.8rem;">
+  <div class="formula-card" style="flex:1;min-width:220px;">
+    <div class="formula-card-title">GraphSAGE Aggregation (per layer k)</div>
+    <div class="formula-card-eq">h_u^k = σ(W^k · CONCAT(h_u^(k-1), MEAN(&#123;h_v : v∈N(u)&#125;)))</div>
+    <div class="formula-card-desc">σ = ReLU · W^k = learnable weight matrix · N(u) = transaction neighbours of wallet u</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:220px;">
+    <div class="formula-card-title">Decoder — Link Probability</div>
+    <div class="formula-card-eq">P(u→v) = σ(0.5·dot + 0.3·cos·|dot| + 0.2·L2sim·|dot|)</div>
+    <div class="formula-card-desc">σ = sigmoid · dot = h_u·h_v · cos = cosine sim · L2sim = 1/(1+‖h_u−h_v‖)</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">PCA Projection (for display)</div>
+    <div class="formula-card-eq">z = W^T x,  W ∈ ℝ^(64×2)</div>
+    <div class="formula-card-desc">Principal Component Analysis reduces 64-dim embeddings to 2D for visualisation only — not used in prediction.</div>
+  </div>
+</div>""", unsafe_allow_html=True)
     st.markdown("---")
 
     if st.session_state.search_history:
@@ -542,7 +617,7 @@ elif "🔮 Link Prediction" in section:
                 else:
                     st.markdown('<p class="valid-address">✔ Valid — found in dataset</p>', unsafe_allow_html=True)
 
-        if st.button("🔮 Predict Transaction Probability", type="primary", use_container_width=True):
+        if st.button("🔮 Predict Transaction Probability", type="primary", width='stretch'):
             errors = []
             if not wallet_a:                           errors.append("Sender address is empty.")
             elif not is_valid_eth_address(wallet_a):   errors.append("Sender address has invalid format.")
@@ -564,23 +639,46 @@ elif "🔮 Link Prediction" in section:
                         st.session_state.search_history.append(addr)
 
                 st.markdown("---")
+                # Animated probability gauge
+                _col_gauge = p["danger"] if prob > 0.7 else p["warning"] if prob > 0.4 else p["success"]
+                _label_gauge = ("🔴 HIGH LIKELIHOOD" if prob > 0.7
+                                else "🟡 MODERATE LIKELIHOOD" if prob > 0.4
+                                else "🟢 LOW LIKELIHOOD")
+                _fill_grad = (f"linear-gradient(90deg,{p['danger']}99,{p['danger']})" if prob > 0.7
+                              else f"linear-gradient(90deg,{p['warning']}99,{p['warning']})" if prob > 0.4
+                              else f"linear-gradient(90deg,{p['success']}99,{p['success']})")
                 rc1, rc2, rc3 = st.columns([1, 2, 1])
                 with rc2:
-                    st.markdown('<div class="success-box">', unsafe_allow_html=True)
-                    st.metric("Link Probability", f"{prob:.4f}", delta=f"{prob*100:.1f}%")
-                    if prob > 0.7:   st.success("🟢 High likelihood of future transaction")
-                    elif prob > 0.4: st.warning("🟡 Moderate likelihood of future transaction")
-                    else:            st.info("🔵 Low likelihood of future transaction")
-                    st.markdown(f"**Sender:** `{wallet_a}`")
-                    st.markdown(f"**Receiver:** `{wallet_b}`")
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    st.markdown(f"""
+<div style="background:{_col_gauge}0F;border:1px solid {_col_gauge}44;border-radius:16px;
+     padding:1.4rem 1.6rem;text-align:center;position:relative;overflow:hidden;">
+  <div style="position:absolute;top:0;left:0;right:0;height:3px;
+       background:linear-gradient(90deg,{p['grad_start']},{p['grad_mid']},{_col_gauge});
+       background-size:200%;animation:shimmerFlow 2s linear infinite;"></div>
+  <div style="font-size:0.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+       color:{p['text_muted']};margin-bottom:6px;">Link Probability — P(u→v)</div>
+  <div style="font-size:3.2rem;font-weight:900;letter-spacing:-2px;color:{_col_gauge};
+       font-variant-numeric:tabular-nums;animation:countUp 0.6s cubic-bezier(0.34,1.56,0.64,1) both;">
+    {prob:.4f}
+  </div>
+  <div style="font-size:0.88rem;font-weight:700;color:{_col_gauge};margin-bottom:0.9rem;">{_label_gauge}</div>
+  <div class="prob-bar-track">
+    <div class="prob-bar-fill" style="width:{prob*100:.1f}%;background:{_fill_grad};
+         --bar-w:{prob*100:.1f}%;"></div>
+  </div>
+  <div style="font-size:0.73rem;color:{p['text_muted']};margin-top:8px;line-height:1.55;">
+    P = σ(0.5·dot + 0.3·cos·|dot| + 0.2·L2sim·|dot|)<br>
+    Sender ID: <code>{id_a}</code> → Receiver ID: <code>{id_b}</code>
+  </div>
+</div>""", unsafe_allow_html=True)
 
                 # Decoder signal breakdown chart
                 st.markdown("### 🔬 Decoder Signal Breakdown")
+                st.markdown(f'<p style="color:{p["text_muted"]};font-size:0.82rem;">Hover each bar to see the exact formula and contribution of each decoder signal.</p>', unsafe_allow_html=True)
                 st.plotly_chart(
                     plot_decoder_signals(embeddings[id_a], embeddings[id_b],
                                          dark=st.session_state.dark_mode),
-                    use_container_width=True)
+                    width='stretch')
 
                 with st.expander("📈 Wallet Details"):
                     dc1, dc2 = st.columns(2)
@@ -609,8 +707,12 @@ elif "🔮 Link Prediction" in section:
                 }]).to_csv(index=False), file_name="link_prediction.csv", mime="text/csv")
 
     with tab2:
-        num_pred = st.slider("Number of predictions", 5, 30, 10)
-        if st.button("🎲 Generate Random Predictions", use_container_width=True):
+        num_pred = st.slider("Number of predictions", 5, 30, 10,
+                              help="How many random wallet pairs to score. "
+                                   "Each pair runs the full 3-signal decoder: "
+                                   "P(u→v) = σ(0.5·dot + 0.3·cos·|dot| + 0.2·L2sim·|dot|). "
+                                   "Results sorted by probability descending.")
+        if st.button("🎲 Generate Random Predictions", width='stretch'):
             rows = []
             for _ in range(num_pred):
                 ia, ib = np.random.choice(embeddings.shape[0], 2, replace=False)
@@ -625,7 +727,7 @@ elif "🔮 Link Prediction" in section:
                     "Receiver Fraud": "🚨" if ib in FRAUD_IDS else "✅",
                 })
             df_pred = pd.DataFrame(rows).sort_values("Probability", ascending=False)
-            st.dataframe(df_pred, use_container_width=True, height=400,
+            st.dataframe(df_pred, width='stretch', height=400,
                          column_config={
                              "Sender":      st.column_config.TextColumn("Sender",   width="large"),
                              "Receiver":    st.column_config.TextColumn("Receiver", width="large"),
@@ -641,6 +743,25 @@ elif "🔮 Link Prediction" in section:
 elif "🚨 Fraud Detection" in section:
     st.markdown('<p class="main-header">🚨 Fraud Detection Dashboard</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Wallets scored 0–100 via Isolation Forest on 64-dim GNN embeddings · Higher = more suspicious</p>', unsafe_allow_html=True)
+
+    st.markdown(f"""
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:0.8rem;">
+  <div class="formula-card" style="flex:1;min-width:220px;">
+    <div class="formula-card-title">Isolation Forest Score</div>
+    <div class="formula-card-eq">s(x,n) = 2^(−E[h(x)] / c(n))</div>
+    <div class="formula-card-desc">E[h(x)] = mean path length to isolate x across all trees · c(n) = expected BST path length · s → 1 means highly anomalous</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:220px;">
+    <div class="formula-card-title">Risk Score Normalisation</div>
+    <div class="formula-card-eq">risk = (s_max − raw) / (s_max − s_min) × 100</div>
+    <div class="formula-card-desc">Inverts & rescales raw IF score to 0–100. Higher risk score = shorter isolation path = more anomalous behaviour.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">Expected BST Path Length</div>
+    <div class="formula-card-eq">c(n) = 2·H(n-1) − (2(n-1)/n)</div>
+    <div class="formula-card-desc">H(n) = harmonic number (ln n + 0.5772). Normalises path lengths so scores are comparable across tree sizes.</div>
+  </div>
+</div>""", unsafe_allow_html=True)
     st.markdown("---")
 
     critical_count = len(fraud_df[fraud_df["risk_level"] == "Critical"])
@@ -673,22 +794,31 @@ elif "🚨 Fraud Detection" in section:
     with c1:
         st.markdown('<div class="fraud-alert">', unsafe_allow_html=True)
         st.metric("🔴 Critical (≥80)", f"{critical_count:,}",
-                  help="Risk score ≥ 80 — highest-priority wallets")
+                  help="Risk score ≥ 80. Isolation Forest path length E[h(x)] is very short — "
+                       "the model isolated these wallets in just a few tree splits, "
+                       "indicating extreme outliers in 64-dim embedding space. "
+                       "Immediate investigation recommended.")
         st.markdown("</div>", unsafe_allow_html=True)
     with c2:
         st.markdown('<div class="warning-box">', unsafe_allow_html=True)
         st.metric("🟠 High (60–79)", f"{high_count:,}",
-                  help="Risk score 60–79 — investigate promptly")
+                  help="Risk score 60–79. Wallets with significantly shorter-than-average "
+                       "isolation paths. Anomaly score s(x,n) indicates embeddings that "
+                       "are far from the main cluster in latent space. Investigate promptly.")
         st.markdown("</div>", unsafe_allow_html=True)
     with c3:
         st.markdown('<div class="warning-box">', unsafe_allow_html=True)
         st.metric("🟡 Medium (35–59)", f"{med_count:,}",
-                  help="Risk score 35–59 — monitor activity")
+                  help="Risk score 35–59. Moderate deviation from normal embedding distribution. "
+                       "s(x,n) = 2^(−E[h(x)] / c(n)) is elevated but not extreme. "
+                       "Monitor for further anomalous activity.")
         st.markdown("</div>", unsafe_allow_html=True)
     with c4:
         st.markdown('<div class="success-box">', unsafe_allow_html=True)
         st.metric("🟢 Low (0–34)", f"{low_count:,}",
-                  help="Risk score 0–34 — anomalous but low priority")
+                  help="Risk score 0–34. These wallets were flagged by Isolation Forest "
+                       "(fraud_label = −1) but show only mild deviation from the normal cluster. "
+                       "Long isolation paths indicate near-normal embedding vectors.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
@@ -696,7 +826,7 @@ elif "🚨 Fraud Detection" in section:
     with col1:
         st.plotly_chart(
             plot_fraud_distribution(fraud_df, dark=st.session_state.dark_mode),
-            use_container_width=True)
+            width='stretch')
     with col2:
         level_counts = fraud_df["risk_level"].value_counts()
         fig_pie = px.pie(values=level_counts.values, names=level_counts.index,
@@ -706,7 +836,7 @@ elif "🚨 Fraud Detection" in section:
                                               "Medium":"#e3b341","Low":"#3fb950"})
         fig_pie.update_layout(template=p["plotly"], height=340,
                                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, width='stretch')
 
     st.markdown("---")
     st.markdown("### 🔍 Fraud Wallet Table")
@@ -729,7 +859,7 @@ elif "🚨 Fraud Detection" in section:
     if "wallet_address" in _disp_filtered.columns:
         show_cols = {"wallet_address": "Wallet Address", **show_cols}
     disp = _disp_filtered[[c for c in show_cols if c in _disp_filtered.columns]].rename(columns=show_cols)
-    st.dataframe(disp, use_container_width=True, height=400,
+    st.dataframe(disp, width='stretch', height=400,
                  column_config={
                      "Wallet Address": st.column_config.TextColumn("Wallet Address", width="large"),
                      "Risk Score":     st.column_config.ProgressColumn("Risk Score", min_value=0, max_value=100,
@@ -745,7 +875,7 @@ elif "🚨 Fraud Detection" in section:
     with sc1:
         st.download_button("⬇️ Export Fraud Report", disp.to_csv(index=False),
                            file_name="fraud_report.csv", mime="text/csv",
-                           use_container_width=True)
+                           width='stretch')
     with sc2:
         st.markdown(
             f'<p style="color:{p["text_muted"]};font-size:0.78rem;padding-top:0.6rem;">'
@@ -763,18 +893,18 @@ elif "🚨 Fraud Detection" in section:
                                     key="inv_wallet_id",
                                     help=f"Default = wallet #{_top_fraud_id} (highest risk score in dataset)")
     with ic2:
-        if st.button("🚨 Top Suspicious", use_container_width=True):
+        if st.button("🚨 Top Suspicious", width='stretch'):
             st.session_state["_inv_wallet"] = int(fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"])
             st.rerun()
     with ic3:
-        if st.button("🎲 Random", use_container_width=True, key="fraud_rand"):
+        if st.button("🎲 Random", width='stretch', key="fraud_rand"):
             st.session_state["_inv_wallet"] = int(np.random.randint(0, embeddings.shape[0]))
             st.rerun()
 
-    if st.button("🔍 Investigate Wallet", type="primary", use_container_width=True):
+    if st.button("🔍 Investigate Wallet", type="primary", width='stretch'):
         wid = int(wid_input)
         try:   addr = le.inverse_transform([wid])[0]
-        except: addr = None
+        except Exception: addr = None
 
         info     = fraud_df[fraud_df["wallet_id"] == wid]
         sent_txs = edges[edges["from_id"] == wid]
@@ -809,13 +939,24 @@ elif "🚨 Fraud Detection" in section:
                         unsafe_allow_html=True)
 
         m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("Wallet ID",   f"#{wid:,}")
-        m2.metric("Txs Sent",    f"{len(sent_txs):,}")
-        m3.metric("Txs Received",f"{len(recv_txs):,}")
-        m4.metric("Counterparties", f"{len(all_cp):,}")
+        m1.metric("Wallet ID",   f"#{wid:,}",
+                  help=f"Integer ID assigned by LabelEncoder. Corresponds to row {wid} in the "
+                       f"{embeddings.shape[0]:,}×{embeddings.shape[1]} embedding matrix.")
+        m2.metric("Txs Sent",    f"{len(sent_txs):,}",
+                  help=f"Out-degree d⁺({wid}) = {len(sent_txs):,}. "
+                       "Number of transactions where this wallet is the sender (from_id).")
+        m3.metric("Txs Received",f"{len(recv_txs):,}",
+                  help=f"In-degree d⁻({wid}) = {len(recv_txs):,}. "
+                       "Number of transactions where this wallet is the receiver (to_id).")
+        m4.metric("Counterparties", f"{len(all_cp):,}",
+                  help=f"|N({wid})| = {len(all_cp):,} unique wallets in 1-hop neighbourhood. "
+                       "Combined senders + receivers (undirected adjacency).")
         m5.metric("Fraud Exposure", f"{fraud_pct}%",
                   delta="⚠️ High" if fraud_pct > 30 else ("🟡 Moderate" if fraud_pct > 10 else "✅ Low"),
-                  delta_color="off")
+                  delta_color="off",
+                  help=f"Fraud Exposure = {len(flagged_cp)} / {max(len(all_cp),1)} × 100 = {fraud_pct}%. "
+                       "Fraction of direct counterparties flagged by Isolation Forest. "
+                       "High exposure = wallet transacts frequently with anomalous wallets.")
 
         t_risk, t_txn, t_net, t_emb = st.tabs(
             ["🔴 Risk Profile", "📋 Transactions", "🌐 Network Context", "🧬 Embedding"])
@@ -825,16 +966,29 @@ elif "🚨 Fraud Detection" in section:
             with rc1:
                 st.markdown("#### Risk Breakdown")
                 if is_flagged:
+                    _rank = int((fraud_df["risk_score"] > rs).sum() + 1)
                     st.markdown(f"""<div style="margin:0.5rem 0 1rem;">
                         <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:{p['text_muted']};margin-bottom:4px;">
-                            <span>Risk Score</span><span>{rs:.1f}/100</span></div>
-                        <div style="background:rgba(128,128,128,0.1);border-radius:999px;height:12px;overflow:hidden;">
-                            <div style="width:{rs}%;height:100%;background:linear-gradient(90deg,{badge_color}88,{badge_color});border-radius:999px;"></div>
+                            <span>Risk Score</span><span style="color:{badge_color};font-weight:700;">{rs:.1f}/100</span></div>
+                        <div class="risk-bar-track">
+                            <div class="risk-bar-fill" style="--bar-w:{rs}%;background:linear-gradient(90deg,{badge_color}88,{badge_color});"></div>
+                        </div>
+                        <div style="font-size:0.72rem;color:{p['text_muted']};margin-top:4px;">
+                            Rank #{_rank} of {len(fraud_df):,} flagged wallets
                         </div></div>""", unsafe_allow_html=True)
                     st.metric("IF Score (raw)", f"{raw_if:.5f}" if raw_if else "N/A",
-                              help="Isolation Forest anomaly score — more negative = more anomalous")
+                              help="Raw Isolation Forest anomaly score s(x,n). "
+                                   "More negative = shorter average isolation path = more anomalous. "
+                                   f"Normalised to Risk Score via: ({fraud_df['fraud_score'].max():.5f} − raw) / "
+                                   f"({fraud_df['fraud_score'].max():.5f} − {fraud_df['fraud_score'].min():.5f}) × 100")
+                    st.metric("Rank (most suspicious)", f"#{_rank} of {len(fraud_df):,}",
+                              help=f"{_rank - 1} wallets have a higher risk score than this one. "
+                                   "Rank 1 = highest risk score in the entire flagged wallet set.")
                 else:
                     st.success("Not flagged by the Isolation Forest model.")
+                    st.markdown(f'<p style="font-size:0.78rem;color:{p["text_muted"]};">'
+                                f'Isolation Forest path length E[h(x)] ≈ c(n) — indistinguishable from '
+                                f'normal wallets in 64-dim embedding space.</p>', unsafe_allow_html=True)
             with rc2:
                 st.markdown("#### Behavioural Signals")
                 for icon, label, detail in [
@@ -858,9 +1012,9 @@ elif "🚨 Fraud Detection" in section:
                 if len(sent_txs) > 0:
                     sd = sent_txs.copy()
                     try: sd["to_address"] = le.inverse_transform(sd["to_id"].astype(int))
-                    except: pass
+                    except Exception: pass
                     sd["fraud"] = sd["to_id"].apply(lambda x: "🚨" if x in FRAUD_IDS else "✅")
-                    st.dataframe(sd, use_container_width=True, height=280,
+                    st.dataframe(sd, width='stretch', height=280,
                                  column_config={"to_address": st.column_config.TextColumn("To Address", width="large"),
                                                 "fraud": st.column_config.TextColumn("Flag", width="small")})
                 else:
@@ -870,9 +1024,9 @@ elif "🚨 Fraud Detection" in section:
                 if len(recv_txs) > 0:
                     rd = recv_txs.copy()
                     try: rd["from_address"] = le.inverse_transform(rd["from_id"].astype(int))
-                    except: pass
+                    except Exception: pass
                     rd["fraud"] = rd["from_id"].apply(lambda x: "🚨" if x in FRAUD_IDS else "✅")
-                    st.dataframe(rd, use_container_width=True, height=280,
+                    st.dataframe(rd, width='stretch', height=280,
                                  column_config={"from_address": st.column_config.TextColumn("From Address", width="large"),
                                                 "fraud": st.column_config.TextColumn("Flag", width="small")})
                 else:
@@ -887,7 +1041,7 @@ elif "🚨 Fraud Detection" in section:
                     for fid in flagged_cp:
                         fi = fraud_df[fraud_df["wallet_id"] == fid]
                         try:    fa = le.inverse_transform([int(fid)])[0]
-                        except: fa = f"ID {fid}"
+                        except Exception: fa = f"ID {fid}"
                         dirs = []
                         if fid in set(sent_txs["to_id"]):   dirs.append("Sent To")
                         if fid in set(recv_txs["from_id"]): dirs.append("Received From")
@@ -896,26 +1050,45 @@ elif "🚨 Fraud Detection" in section:
                                         "Risk Score": round(float(fi.iloc[0]["risk_score"]), 1) if len(fi) > 0 else 0,
                                         "Relationship": " & ".join(dirs)})
                     st.dataframe(pd.DataFrame(fp_rows).sort_values("Risk Score", ascending=False),
-                                 use_container_width=True, height=260,
+                                 width='stretch', height=260,
                                  column_config={"Address": st.column_config.TextColumn("Address", width="large"),
                                                 "Risk Score": st.column_config.NumberColumn("Score", format="%.1f")})
                 else:
                     st.success("✅ No flagged wallets among direct counterparties.")
             with nc2:
-                st.metric("Total Counterparties", f"{len(all_cp):,}")
-                st.metric("Flagged Counterparties", f"{len(flagged_cp):,}")
-                st.metric("Unique Receivers", f"{sent_txs['to_id'].nunique():,}")
-                st.metric("Unique Senders",   f"{recv_txs['from_id'].nunique():,}")
+                st.metric("Total Counterparties", f"{len(all_cp):,}",
+                          help=f"|N({wid})| = {len(all_cp):,} — size of the 1-hop neighbourhood "
+                               "in the directed transaction graph. Includes both senders and receivers.")
+                st.metric("Flagged Counterparties", f"{len(flagged_cp):,}",
+                          help=f"{len(flagged_cp):,} of {len(all_cp):,} counterparties have "
+                               "fraud_label = −1 (Isolation Forest). "
+                               f"Fraud Exposure = {round(len(flagged_cp)/max(len(all_cp),1)*100,1)}%.")
+                st.metric("Unique Receivers", f"{sent_txs['to_id'].nunique():,}",
+                          help="Distinct wallet IDs in the 'to_id' column of outgoing transactions. "
+                               "Multiple transactions may share the same receiver.")
+                st.metric("Unique Senders",   f"{recv_txs['from_id'].nunique():,}",
+                          help="Distinct wallet IDs in the 'from_id' column of incoming transactions. "
+                               "Multiple transactions may share the same sender.")
 
         with t_emb:
             emb = embeddings[wid]
             ec1, ec2 = st.columns(2)
             with ec1:
                 st.markdown("#### Embedding Statistics")
-                st.metric("Dimensions", len(emb))
-                st.metric("L2 Norm",    f"{float(np.linalg.norm(emb)):.4f}")
-                st.metric("Mean",       f"{float(np.mean(emb)):.4f}")
-                st.metric("Std Dev",    f"{float(np.std(emb)):.4f}")
+                st.metric("Dimensions", len(emb),
+                          help=f"h_{wid} ∈ ℝ^{len(emb)} — the GNN's learned representation of this wallet. "
+                               "Each dimension encodes a different latent feature of transaction behaviour.")
+                st.metric("L2 Norm",    f"{float(np.linalg.norm(emb)):.4f}",
+                          help=f"‖h‖₂ = √(Σᵢ hᵢ²) = {float(np.linalg.norm(emb)):.4f}. "
+                               "After L2 normalisation per layer, all embeddings should lie close to the unit hypersphere (norm ≈ 1). "
+                               "Deviation indicates pre-normalisation raw embedding.")
+                st.metric("Mean",       f"{float(np.mean(emb)):.4f}",
+                          help=f"μ = (1/{len(emb)}) Σᵢ hᵢ = {float(np.mean(emb)):.4f}. "
+                               "Mean activation across all embedding dimensions. "
+                               "Positive mean = overall positive bias in latent space.")
+                st.metric("Std Dev",    f"{float(np.std(emb)):.4f}",
+                          help=f"σ = √((1/{len(emb)}) Σᵢ (hᵢ − μ)²) = {float(np.std(emb)):.4f}. "
+                               "Spread of values across dimensions. Higher std = more varied feature activations.")
                 st.markdown("#### Top 5 Similar Wallets (cosine)")
                 top_ids, sims = find_top_k_similar(emb, embeddings, k=6)
                 sim_rows = []
@@ -923,12 +1096,12 @@ elif "🚨 Fraud Detection" in section:
                     if sid == wid: continue
                     fi = fraud_df[fraud_df["wallet_id"] == sid]
                     try:    sa = le.inverse_transform([int(sid)])[0]
-                    except: sa = f"ID {sid}"
+                    except Exception: sa = f"ID {sid}"
                     sim_rows.append({"Address": sa, "ID": int(sid),
                                      "Cosine Sim": round(float(sim), 4),
                                      "Risk": fi.iloc[0]["risk_level"] if len(fi) > 0 else "Clean"})
                 if sim_rows:
-                    st.dataframe(pd.DataFrame(sim_rows).head(5), use_container_width=True,
+                    st.dataframe(pd.DataFrame(sim_rows).head(5), width='stretch',
                                  column_config={"Address": st.column_config.TextColumn("Address", width="large"),
                                                 "Cosine Sim": st.column_config.NumberColumn("Cosine", format="%.4f")},
                                  hide_index=True)
@@ -941,14 +1114,14 @@ elif "🚨 Fraud Detection" in section:
                                       margin=dict(t=10, b=10, l=10, r=10),
                                       xaxis=dict(showticklabels=False),
                                       yaxis=dict(showticklabels=False))
-                st.plotly_chart(fig_emb, use_container_width=True)
+                st.plotly_chart(fig_emb, width='stretch')
 
         st.download_button("⬇️ Export Investigation Report",
             pd.DataFrame([{"wallet_id": wid, "address": addr or "N/A", "is_flagged": is_flagged,
                            "risk_level": rl, "risk_score": rs, "raw_if_score": raw_if,
                            "txs_sent": len(sent_txs), "txs_received": len(recv_txs),
                            "flagged_counterparties": len(flagged_cp), "fraud_exposure_pct": fraud_pct}]).to_csv(index=False),
-            file_name=f"investigation_{wid}.csv", mime="text/csv", use_container_width=True)
+            file_name=f"investigation_{wid}.csv", mime="text/csv", width='stretch')
 
 
 # ═══════════════════════════════════════════════
@@ -967,20 +1140,54 @@ elif "📈 Model Performance" in section:
     _reduction  = (_init_loss - _final_loss) / _init_loss * 100 if _init_loss else 0
     _n_epochs   = len(loss_history)              if loss_history is not None else 0
 
+    # Model Performance formula cards
+    st.markdown(f"""
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:0.8rem;">
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">ROC-AUC Definition</div>
+    <div class="formula-card-eq">AUC = ∫₀¹ TPR(FPR⁻¹(t)) dt</div>
+    <div class="formula-card-desc">Probability that a randomly chosen anomalous wallet is ranked higher than a random normal wallet. 1.0 = perfect.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">Binary Cross-Entropy Loss</div>
+    <div class="formula-card-eq">L = −Σ [y·log(ŷ) + (1−y)·log(1−ŷ)]</div>
+    <div class="formula-card-desc">y = true label (link exists/not) · ŷ = decoder probability. Minimised via Adam optimiser over 100 epochs.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">Youden's J Statistic</div>
+    <div class="formula-card-eq">J = TPR − FPR = Sensitivity + Specificity − 1</div>
+    <div class="formula-card-desc">Optimal operating threshold on ROC curve — maximises true positive rate while minimising false positive rate.</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
     hk1, hk2, hk3, hk4, hk5 = st.columns(5)
     hk1.metric("ROC-AUC",       f"{roc_auc_val:.4f}" if roc_auc_val else "N/A",
                delta="Perfect" if roc_auc_val and roc_auc_val >= 0.99 else None,
-               delta_color="off", help="Area under the ROC curve — 1.0000 = perfect fraud separation")
+               delta_color="off",
+               help="AUC = ∫₀¹ TPR(t) dt  —  Area Under the ROC Curve. "
+                    "1.0000 = the Isolation Forest score perfectly separates all fraudulent "
+                    "from clean wallet embeddings at every threshold. "
+                    "0.5 = random classifier baseline. "
+                    "Computed on all " + f"{embeddings.shape[0]:,} wallet embeddings.")
     hk2.metric("Best Loss",     f"{_best_loss:,.1f}",
                delta=f"epoch {_best_idx+1}/{_n_epochs}", delta_color="off",
-               help="Lowest training loss achieved during the run")
+               help=f"Minimum Binary Cross-Entropy loss: L = −Σ[y·log(ŷ) + (1−y)·log(1−ŷ)]. "
+                    f"Achieved at epoch {_best_idx+1} of {_n_epochs}. "
+                    "This is the optimal checkpoint for early stopping.")
     hk3.metric("Final Loss",    f"{_final_loss:,.1f}",
-               help="Training loss at epoch 100")
+               help=f"BCE training loss at epoch {_n_epochs} (final epoch). "
+                    "Slightly higher than best if model overfit in later epochs — "
+                    "typical in link prediction with dynamic negative sampling.")
     hk4.metric("Loss Reduction",f"{_reduction:.1f}%",
-               help=f"From {_init_loss:,.0f} → {_final_loss:,.1f} over {_n_epochs} epochs")
+               help=f"(L_initial − L_final) / L_initial × 100% = "
+                    f"({_init_loss:,.0f} − {_final_loss:.1f}) / {_init_loss:,.0f} × 100. "
+                    "Measures total training progress. Higher = better convergence.")
     hk5.metric("Flagged Wallets",f"{len(fraud_df):,}",
                delta=f"{len(fraud_df)/embeddings.shape[0]*100:.2f}% of network",
-               delta_color="off", help="Wallets flagged by Isolation Forest")
+               delta_color="off",
+               help="Wallets where Isolation Forest anomaly score s(x,n) = 2^(−E[h(x)]/c(n)) "
+                    "indicated anomalous embedding. "
+                    f"contamination='auto' → model self-selects ~{len(fraud_df)/embeddings.shape[0]*100:.1f}% as outliers.")
     st.markdown("---")
 
     col1, col2 = st.columns(2)
@@ -988,7 +1195,7 @@ elif "📈 Model Performance" in section:
         st.markdown("### 📉 Training Loss")
         if loss_history is not None:
             st.plotly_chart(plot_loss_curve(loss_history, dark=st.session_state.dark_mode),
-                            use_container_width=True)
+                            width='stretch')
             with st.expander("Loss Statistics", expanded=False):
                 lc1, lc2, lc3 = st.columns(3)
                 lc1.metric("Initial Loss",   f"{_init_loss:,.1f}")
@@ -1019,7 +1226,7 @@ elif "📈 Model Performance" in section:
         if all(x is not None for x in [fpr, tpr, roc_auc_val]):
             st.plotly_chart(plot_roc_curve(fpr, tpr, roc_auc_val,
                                            dark=st.session_state.dark_mode),
-                            use_container_width=True)
+                            width='stretch')
             with st.expander("ROC Statistics", expanded=False):
                 rc1, rc2, rc3 = st.columns(3)
                 rc1.metric("AUC Score",   f"{roc_auc_val:.4f}",
@@ -1075,7 +1282,7 @@ evaluated on all {embeddings.shape[0]:,} wallets.</p>""", unsafe_allow_html=True
         ],
         "Status": ["✅"]*18,
     })
-    st.dataframe(_eval_df, use_container_width=True, hide_index=True,
+    st.dataframe(_eval_df, width='stretch', hide_index=True,
                  column_config={
                      "Category": st.column_config.TextColumn("Category", width="small"),
                      "Metric":   st.column_config.TextColumn("Metric",   width="medium"),
@@ -1134,26 +1341,68 @@ elif "🏗️ Architecture & ML" in section:
 
     with tab_math:
         st.markdown("#### GraphSAGE Forward Pass")
-        st.markdown(f'<p style="color:{p["text_muted"]};font-size:0.84rem;">For each node u at layer k, neighbourhood aggregation then linear projection:</p>', unsafe_allow_html=True)
-        for label, formula in [
-            ("Aggregate neighbourhood", "h_N(u)^(k)  =  MEAN( {{ h_v^(k-1) : v ∈ N(u) }} )"),
-            ("Concatenate + project",   "h_u^(k)     =  σ( W^(k) · CONCAT( h_u^(k-1), h_N(u)^(k) ) )"),
-            ("L2 normalise",            "h_u^(k)     =  h_u^(k)  /  ‖h_u^(k)‖₂"),
+        st.markdown(f'<p style="color:{p["text_muted"]};font-size:0.84rem;">For each node u at layer k, neighbourhood aggregation then linear projection. Hover the <span class="math-term" style="font-size:0.84rem;">terms<span class="math-popup"><div class="math-popup-title">Notation Guide</div><div class="math-popup-formula">h_u^(k) — embedding of node u at layer k<br>N(u)    — neighbours of u (direct tx counterparties)<br>W^(k)   — trainable weight matrix, layer k<br>σ       — ReLU activation function<br>‖·‖₂   — L2 (Euclidean) norm</div><div class="math-popup-desc">All vectors are 64-dimensional after layer 2. L2 normalisation brings each vector onto the unit hypersphere ℝ⁶⁴.</div></span></span> for definitions.</p>', unsafe_allow_html=True)
+
+        for label, formula, tooltip_title, tooltip_formula, tooltip_desc in [
+            ("1 · Aggregate neighbourhood",
+             "h_N(u)^(k)  =  MEAN( { h_v^(k-1) : v ∈ N(u) } )",
+             "MEAN Aggregation", "MEAN({h_v : v∈N(u)}) = (1/|N(u)|) Σ_{v∈N(u)} h_v^(k-1)",
+             "Averages all neighbour embeddings. MEAN is the simplest GraphSAGE aggregator — no order dependency, O(|N|) compute."),
+            ("2 · Concatenate + project",
+             "h_u^(k)  =  σ( W^(k) · CONCAT( h_u^(k-1), h_N(u)^(k) ) )",
+             "CONCAT + Linear Projection", "CONCAT(h_u, h_N) ∈ ℝ^(2d) → W^(k) projects to ℝ^d",
+             "Concatenation preserves the node's own features alongside neighbour information. W^(k) ∈ ℝ^(d×2d) is learned by backpropagation through BCE loss."),
+            ("3 · L2 normalise per layer",
+             "h_u^(k)  =  h_u^(k)  /  ‖h_u^(k)‖₂",
+             "L2 Normalisation", "h_norm = h / ‖h‖₂   where ‖h‖₂ = √(Σᵢ hᵢ²)",
+             "Projects each embedding onto the unit hypersphere. Makes cosine similarity well-defined (dot product = cosine when both vectors are unit-norm)."),
         ]:
-            st.markdown(f'<div style="font-size:0.78rem;color:{p["text_muted"]};margin-top:0.8rem;font-weight:600;">{label}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="formula-block">{formula}</div>', unsafe_allow_html=True)
+            st.markdown(f"""<div style="margin-top:0.9rem;">
+<div style="font-size:0.78rem;color:{p['text_muted']};font-weight:600;margin-bottom:4px;">{label}</div>
+<div class="formula-block" style="position:relative;">{formula}
+  <span class="math-term" style="font-size:0.72rem;margin-left:8px;">?<span class="math-popup">
+    <div class="math-popup-title">{tooltip_title}</div>
+    <div class="math-popup-formula">{tooltip_formula}</div>
+    <div class="math-popup-desc">{tooltip_desc}</div>
+  </span></span>
+</div></div>""", unsafe_allow_html=True)
 
         st.markdown("---")
         st.markdown("#### Multi-Signal Decoder")
-        for label, formula in [
-            ("Component 1 — Dot product",   "s_dot  =  h_u · h_v"),
-            ("Component 2 — Cosine sim",     "s_cos  =  (h_u · h_v) / (‖h_u‖ · ‖h_v‖)"),
-            ("Component 3 — L2 similarity",  "s_L2   =  1 / (1 + ‖h_u - h_v‖₂)"),
-            ("Weighted combination",          "score  =  0.5·s_dot  +  0.3·s_cos·|s_dot|  +  0.2·s_L2·|s_dot|"),
-            ("Output probability",            "P(edge u→v) = σ(score) = 1 / (1 + e^(−score))"),
-        ]:
-            st.markdown(f'<div style="font-size:0.78rem;color:{p["text_muted"]};margin-top:0.7rem;font-weight:600;">{label}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="formula-block">{formula}</div>', unsafe_allow_html=True)
+        st.markdown(f'<p style="color:{p["text_muted"]};font-size:0.84rem;">Three complementary geometric signals capture different aspects of the embedding relationship. Hover each formula for the intuition.</p>', unsafe_allow_html=True)
+
+        decoder_rows = [
+            ("1 · Dot Product",
+             "s_dot  =  h_u · h_v  =  Σᵢ (h_u)ᵢ · (h_v)ᵢ",
+             "Dot Product Signal", "s_dot = h_u^T h_v = ‖h_u‖·‖h_v‖·cos(θ)",
+             "Captures both magnitude (activity level) and angle (similarity direction). High dot product = high embedding magnitude AND similar direction — both wallets are active and similar."),
+            ("2 · Cosine Similarity",
+             "s_cos  =  (h_u · h_v) / (‖h_u‖ · ‖h_v‖)",
+             "Cosine Similarity", "cos(θ) = dot(h_u, h_v) / (‖h_u‖₂ · ‖h_v‖₂) ∈ [−1, +1]",
+             "Direction-only similarity, normalised for magnitude. 1.0 = same direction = similar behaviour pattern regardless of activity level."),
+            ("3 · L2 Similarity",
+             "s_L2   =  1 / (1 + ‖h_u − h_v‖₂)",
+             "L2 (Euclidean) Similarity", "s_L2 = 1/(1 + ‖h_u − h_v‖₂)  ∈ (0, 1]",
+             "Euclidean proximity in embedding space. 1.0 = identical vectors. Decays as wallets move apart. Captures spatial distance not fully expressed by cosine."),
+            ("4 · Weighted Combination",
+             "score  =  0.5·s_dot  +  0.3·s_cos·|s_dot|  +  0.2·s_L2·|s_dot|",
+             "Decoder Combination", "weights: dot=0.50, cosine=0.30, L2=0.20  →  sum=1.00",
+             "Multiplicative coupling of cosine/L2 by |dot| ensures they only contribute when there is magnitude signal. Weights chosen empirically for best link prediction performance."),
+            ("5 · Output Probability",
+             "P(link u→v) = σ(score) = 1 / (1 + e^(−score))",
+             "Sigmoid Activation", "σ(x) = eˣ / (1 + eˣ) = 1 / (1 + e^(−x))  ∈ (0, 1)",
+             "Maps unbounded score to probability in (0,1). Threshold at 0.5 for binary classification: P > 0.5 → predict link exists."),
+        ]
+        for label, formula, tt_title, tt_formula, tt_desc in decoder_rows:
+            st.markdown(f"""<div style="margin-top:0.8rem;">
+<div style="font-size:0.78rem;color:{p['text_muted']};font-weight:600;margin-bottom:4px;">{label}</div>
+<div class="formula-block" style="position:relative;">{formula}
+  <span class="math-term" style="font-size:0.72rem;margin-left:8px;">?<span class="math-popup">
+    <div class="math-popup-title">{tt_title}</div>
+    <div class="math-popup-formula">{tt_formula}</div>
+    <div class="math-popup-desc">{tt_desc}</div>
+  </span></span>
+</div></div>""", unsafe_allow_html=True)
 
     with tab_decoder:
         st.markdown("#### 🔬 Live Decoder Signal Breakdown")
@@ -1165,11 +1414,11 @@ elif "🏗️ Architecture & ML" in section:
             db_id = st.number_input("Wallet B (ID)", min_value=0, max_value=int(embeddings.shape[0]-1), value=1, key="dec_b")
         with dc3:
             st.markdown("<br>", unsafe_allow_html=True)
-            run_dec = st.button("Analyse", type="primary", use_container_width=True)
+            run_dec = st.button("Analyse", type="primary", width='stretch')
         if run_dec:
             emb_a = embeddings[int(da_id)]
             emb_b = embeddings[int(db_id)]
-            st.plotly_chart(plot_decoder_signals(emb_a, emb_b, dark=st.session_state.dark_mode), use_container_width=True)
+            st.plotly_chart(plot_decoder_signals(emb_a, emb_b, dark=st.session_state.dark_mode), width='stretch')
             prob = compute_link_probability(emb_a, emb_b)
             col_r = p["danger"] if prob > 0.7 else p["warning"] if prob > 0.4 else p["success"]
             st.markdown(f"""<div style="background:{col_r}18;border:1px solid {col_r}44;border-radius:8px;padding:0.7rem 1rem;margin:0.5rem 0;">
@@ -1254,19 +1503,42 @@ elif "🧬 Embedding Space" in section:
     st.markdown('<p class="sub-header">2D / 3D PCA projection of all 25K wallet embeddings · Fraud clusters · Nearest-neighbour search</p>', unsafe_allow_html=True)
 
     # Controls
+    # Formula card for PCA section
+    st.markdown(f"""
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:0.8rem;">
+  <div class="formula-card" style="flex:1;min-width:220px;">
+    <div class="formula-card-title">PCA Projection — z = W^T x</div>
+    <div class="formula-card-eq">W ∈ ℝ^(64×k)  extracted by eigendecomposition of cov(X)</div>
+    <div class="formula-card-desc">k=2 for 2D, k=3 for 3D. W's columns are the top-k principal components — directions of maximum variance in the 64-dim embedding space. Dot product projects each wallet onto these axes.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">Cosine Similarity (nearest neighbours)</div>
+    <div class="formula-card-eq">sim(u,v) = h_u·h_v / (‖h_u‖·‖h_v‖) ∈ [−1, 1]</div>
+    <div class="formula-card-desc">L2-normalised embeddings make cosine = dot product. Nearest neighbours in embedding space ≈ most similar transaction behaviour.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">Explained Variance Ratio</div>
+    <div class="formula-card-eq">EVR_k = λ_k / Σᵢ λᵢ</div>
+    <div class="formula-card-desc">λ_k = k-th eigenvalue of the covariance matrix. PC1+PC2+PC3 capture the top EVR% of total variance in 64-dim embedding space.</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
     ctrl1, ctrl2, ctrl3, ctrl4 = st.columns([2, 1, 1, 1])
     with ctrl1:
         sample_size = st.slider("Sample size (wallets)", 1000, 6000, 4000, step=500,
-                                help="Larger = more detail but slower render")
+                                help="Number of wallets to sample for PCA. Larger samples show more structure "
+                                     "but require more compute. PCA complexity is O(n·d²) where d=64 dims.")
     with ctrl2:
-        mode_3d = st.toggle("3D View", value=False)
+        mode_3d = st.toggle("3D View", value=False,
+                             help="Switch between 2D (PC1 vs PC2) and 3D (PC1, PC2, PC3) scatter. "
+                                  "3D captures more variance but is harder to read.")
     with ctrl3:
         hl_id = st.number_input("Highlight wallet ID", min_value=-1,
                                 max_value=int(embeddings.shape[0]-1), value=-1,
-                                help="-1 = no highlight")
+                                help="-1 = no highlight. Enter any wallet ID to mark it as a star on the scatter plot.")
     with ctrl4:
         st.markdown("<br>", unsafe_allow_html=True)
-        run_pca = st.button("🔭 Generate", type="primary", use_container_width=True)
+        run_pca = st.button("🔭 Generate", type="primary", width='stretch')
 
     if run_pca or "pca_coords" not in st.session_state or st.session_state.get("pca_sample") != sample_size:
         with st.spinner(f"Computing PCA on {sample_size:,} wallet embeddings…"):
@@ -1289,7 +1561,7 @@ elif "🧬 Embedding Space" in section:
             highlight_id=int(hl_id),
             mode_3d=mode_3d,
         )
-        st.plotly_chart(fig_pca, use_container_width=True)
+        st.plotly_chart(fig_pca, width='stretch')
 
         # Stats row
         st.markdown("---")
@@ -1309,7 +1581,7 @@ elif "🧬 Embedding Space" in section:
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                 margin=dict(t=10, b=40, l=40, r=10),
             )
-            st.plotly_chart(fig_var, use_container_width=True)
+            st.plotly_chart(fig_var, width='stretch')
 
         with vc2:
             st.markdown("#### Sampled Distribution")
@@ -1334,21 +1606,25 @@ elif "🧬 Embedding Space" in section:
         with vc3:
             st.markdown("#### Nearest Neighbours")
             nn_id = st.number_input("Query wallet ID", min_value=0,
-                                    max_value=int(embeddings.shape[0]-1), value=0, key="nn_query")
-            k_nn  = st.slider("K neighbours", 3, 15, 5, key="nn_k")
-            if st.button("Find Neighbours", use_container_width=True):
+                                    max_value=int(embeddings.shape[0]-1), value=0, key="nn_query",
+                                    help="Wallet ID to query. The model finds wallets whose 64-dim embedding "
+                                         "vectors are closest by cosine similarity: sim(u,v) = h_u·h_v / (‖h_u‖·‖h_v‖).")
+            k_nn  = st.slider("K neighbours", 3, 15, 5, key="nn_k",
+                              help="Number of nearest neighbours to retrieve. "
+                                   "KNN search is O(|V|·d) brute-force — feasible for 25K wallets × 64 dims.")
+            if st.button("Find Neighbours", width='stretch'):
                 top_ids, top_sims = find_top_k_similar(embeddings[nn_id], embeddings, k=k_nn+1, exclude_id=nn_id)
                 nn_rows = []
                 for sid, sim in zip(top_ids, top_sims):
                     if sid == nn_id: continue
                     fi = fraud_df[fraud_df["wallet_id"] == sid]
                     try:    sa = le.inverse_transform([int(sid)])[0][:20] + "…"
-                    except: sa = f"ID {sid}"
+                    except Exception: sa = f"ID {sid}"
                     nn_rows.append({"ID": int(sid), "Cosine": round(float(sim), 4),
                                     "Risk": fi.iloc[0]["risk_level"] if len(fi) > 0 else "Clean"})
                 if nn_rows:
                     st.dataframe(pd.DataFrame(nn_rows).head(k_nn),
-                                 use_container_width=True, hide_index=True,
+                                 width='stretch', hide_index=True,
                                  column_config={"Cosine": st.column_config.NumberColumn("Cosine Sim", format="%.4f")})
 
         st.markdown("---")
@@ -1374,28 +1650,58 @@ elif "🌐 Network Visualization" in section:
     st.markdown('<p class="main-header">🌐 Network Visualization</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Directed transaction graph · Fraud-aware node colouring · Configurable layout</p>', unsafe_allow_html=True)
 
+    st.markdown(f"""
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:0.8rem;">
+  <div class="formula-card" style="flex:1;min-width:220px;">
+    <div class="formula-card-title">Graph Density</div>
+    <div class="formula-card-eq">ρ = |E| / (|V| · (|V| − 1))</div>
+    <div class="formula-card-desc">Fraction of all possible directed edges that exist. |E| = edges shown · |V| = nodes in subgraph. ρ→1 = dense cluster · ρ→0 = sparse hub-and-spoke.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:220px;">
+    <div class="formula-card-title">Node Degree</div>
+    <div class="formula-card-eq">d(v) = d⁺(v) + d⁻(v)   (out + in)</div>
+    <div class="formula-card-desc">d⁺(v) = outgoing transactions sent · d⁻(v) = incoming transactions received. Node size in graph ∝ degree for visual prominence.</div>
+  </div>
+  <div class="formula-card" style="flex:1;min-width:200px;">
+    <div class="formula-card-title">Fraud Propagation Risk</div>
+    <div class="formula-card-eq">FPR(v) = |N(v) ∩ F| / |N(v)|</div>
+    <div class="formula-card-desc">F = set of all fraud-flagged wallets. FPR(v) measures what fraction of v's direct neighbours are anomalous. High FPR → guilt-by-association risk.</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
     vc1, vc2, vc3 = st.columns([2, 1, 1])
     with vc1:
         wid_viz = st.number_input("Centre Wallet ID", min_value=0,
                                    max_value=int(embeddings.shape[0]-1),
                                    value=int(st.session_state.get("_viz_wallet", 0)), key="viz_wid")
     with vc2:
-        if st.button("🚨 Top Fraud Wallet", use_container_width=True):
+        if st.button("🚨 Top Fraud Wallet", width='stretch'):
             st.session_state["_viz_wallet"] = int(fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"])
             st.rerun()
     with vc3:
-        if st.button("🎲 Random Wallet", use_container_width=True, key="viz_rand"):
+        if st.button("🎲 Random Wallet", width='stretch', key="viz_rand"):
             st.session_state["_viz_wallet"] = int(np.random.randint(0, embeddings.shape[0]))
             st.rerun()
 
     with st.expander("⚙️ Graph Settings", expanded=True):
         gs1, gs2, gs3, gs4 = st.columns(4)
-        with gs1: max_conn  = st.slider("Max edges", 10, 100, 40, step=5)
-        with gs2: depth     = st.selectbox("Hop depth", ["1-hop", "2-hop"], index=0)
-        with gs3: layout_algo = st.selectbox("Layout", ["spring","kamada","circular","shell"])
-        with gs4: show_lbl  = st.toggle("Show labels", value=True)
+        with gs1: max_conn  = st.slider("Max edges", 10, 100, 40, step=5,
+                                        help="Cap on |E| shown in subgraph. Higher = more context but slower. "
+                                             "Edges sampled by recency from the edge list.")
+        with gs2: depth     = st.selectbox("Hop depth", ["1-hop", "2-hop"], index=0,
+                                           help="1-hop: only direct counterparties N(v). "
+                                                "2-hop: also includes counterparties of counterparties — "
+                                                "reveals money-laundering layering patterns.")
+        with gs3: layout_algo = st.selectbox("Layout", ["spring","kamada","circular","shell"],
+                                              help="spring = force-directed (Fruchterman-Reingold) — "
+                                                   "nodes repel, edges attract. "
+                                                   "kamada = energy minimisation. "
+                                                   "circular/shell = fixed ring layouts.")
+        with gs4: show_lbl  = st.toggle("Show labels", value=True,
+                                         help="Display truncated wallet addresses on nodes. "
+                                              "Disable for dense graphs to reduce visual clutter.")
 
-    if st.button("🌐 Generate Network Graph", type="primary", use_container_width=True):
+    if st.button("🌐 Generate Network Graph", type="primary", width='stretch'):
         wid = int(wid_viz)
         with st.spinner("Building graph…"):
             if depth == "2-hop":
@@ -1412,7 +1718,7 @@ elif "🌐 Network Visualization" in section:
             st.warning(f"No transactions found for wallet ID {wid}.")
         else:
             try:    centre_addr = le.inverse_transform([wid])[0]
-            except: centre_addr = None
+            except Exception: centre_addr = None
             if centre_addr:
                 st.markdown(f'<span class="wallet-address-full">📍 {centre_addr}</span>', unsafe_allow_html=True)
             fi = fraud_df[fraud_df["wallet_id"] == wid]
@@ -1423,18 +1729,31 @@ elif "🌐 Network Visualization" in section:
                 st.markdown(f'<div style="background:{col_r}18;border:1px solid {col_r}44;border-radius:8px;padding:0.5rem 1rem;margin:0.4rem 0;"><b style="color:{col_r};">⚠️ {rl_c} Risk — Score {rs_c:.1f}/100</b></div>', unsafe_allow_html=True)
             else:
                 st.markdown(f'<div style="background:{p["success"]}18;border:1px solid {p["success"]}44;border-radius:8px;padding:0.5rem 1rem;margin:0.4rem 0;"><b style="color:{p["success"]};">✅ Clean Wallet</b></div>', unsafe_allow_html=True)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
             out_t = edges[edges["from_id"] == wid]
             in_t  = edges[edges["to_id"]   == wid]
             all_c = set(out_t["to_id"].tolist()) | set(in_t["from_id"].tolist())
             fl_c  = all_c & FRAUD_IDS
             km1, km2, km3, km4, km5, km6 = st.columns(6)
-            km1.metric("Outgoing Txs",  f"{len(out_t):,}")
-            km2.metric("Incoming Txs",  f"{len(in_t):,}")
-            km3.metric("Total",         f"{len(out_t)+len(in_t):,}")
-            km4.metric("Counterparties",f"{len(all_c):,}")
-            km5.metric("Flagged CPs",   f"{len(fl_c):,}")
-            km6.metric("Fraud Exposure",f"{round(len(fl_c)/max(len(all_c),1)*100,1)}%")
+            km1.metric("Outgoing Txs",  f"{len(out_t):,}",
+                       help=f"Out-degree d⁺(v) = |{{(v,u) ∈ E}}| for wallet {wid}. "
+                            "Transactions sent from this wallet.")
+            km2.metric("Incoming Txs",  f"{len(in_t):,}",
+                       help=f"In-degree d⁻(v) = |{{(u,v) ∈ E}}| for wallet {wid}. "
+                            "Transactions received by this wallet.")
+            km3.metric("Total",         f"{len(out_t)+len(in_t):,}",
+                       help=f"Total degree d(v) = d⁺(v) + d⁻(v) = {len(out_t)+len(in_t):,}. "
+                            "Sum of all transaction interactions.")
+            km4.metric("Counterparties",f"{len(all_c):,}",
+                       help="Unique wallets this wallet has sent to or received from — "
+                            "the 1-hop neighbourhood N(v).")
+            km5.metric("Flagged CPs",   f"{len(fl_c):,}",
+                       help=f"{len(fl_c):,} of {len(all_c):,} counterparties were flagged by "
+                            "Isolation Forest as anomalous. High value = high-risk network neighbourhood.")
+            km6.metric("Fraud Exposure",f"{round(len(fl_c)/max(len(all_c),1)*100,1)}%",
+                       help=f"Fraud Exposure = |flagged CPs| / |total CPs| × 100 = "
+                            f"{len(fl_c)} / {max(len(all_c),1)} × 100. "
+                            "High exposure doesn't imply fraud but warrants investigation.")
 
     st.markdown("---")
     st.markdown("### 🚨 Top Suspicious Networks")
@@ -1443,18 +1762,18 @@ elif "🌐 Network Visualization" in section:
     with sp2: susp_conn = st.slider("Max edges/graph", 10, 40, 15, key="sc")
     with sp3: susp_layout = st.selectbox("Layout", ["spring","kamada","circular"], key="sl")
 
-    if st.button("🔍 Render Suspicious Networks", use_container_width=True):
+    if st.button("🔍 Render Suspicious Networks", width='stretch'):
         for _, row in fraud_df.sort_values("risk_score", ascending=False).head(top_n).iterrows():
             fw = int(row["wallet_id"])
             try:    lbl = f"{le.inverse_transform([fw])[0][:20]}… — {row['risk_level']} ({row['risk_score']:.1f}/100)"
-            except: lbl = f"Wallet {fw} — {row['risk_level']} ({row['risk_score']:.1f}/100)"
+            except Exception: lbl = f"Wallet {fw} — {row['risk_level']} ({row['risk_score']:.1f}/100)"
             col_r = {"Critical":"#f85149","High":"#ff7b72","Medium":"#e3b341","Low":"#3fb950"}.get(row["risk_level"], p["accent"])
             st.markdown(f'<div style="border-left:3px solid {col_r};padding-left:0.8rem;margin:0.4rem 0;"><b style="color:{col_r};">{lbl}</b></div>', unsafe_allow_html=True)
             sub_fig = create_network_subgraph(
                 edges, fw, le, fraud_df, max_connections=susp_conn,
                 layout=susp_layout, show_labels=False, dark=st.session_state.dark_mode)
             if sub_fig:
-                st.plotly_chart(sub_fig, use_container_width=True)
+                st.plotly_chart(sub_fig, width='stretch')
             else:
                 st.info(f"No edges for wallet {fw}.")
 
@@ -1472,10 +1791,20 @@ elif "🔌 Live Blockchain Explorer" in section:
     blk_info = get_latest_block_info()
     if blk_info:
         bc1, bc2, bc3, bc4 = st.columns(4)
-        bc1.metric("Latest Block",    f"{blk_info['number']:,}")
-        bc2.metric("Timestamp",       blk_info["timestamp"][:16])
-        bc3.metric("Txs in Block",    f"{blk_info['tx_count']:,}")
-        bc4.metric("Gas Utilisation", f"{blk_info['utilisation']}%")
+        bc1.metric("Latest Block",    f"{blk_info['number']:,}",
+                   help="Current Ethereum chain head block number (eth_blockNumber). "
+                        "New block every ~12 seconds (post-Merge proof-of-stake).")
+        bc2.metric("Timestamp",       blk_info["timestamp"][:16],
+                   help="Unix timestamp of the latest block, converted to UTC datetime. "
+                        "block.timestamp set by the validator at proposal time.")
+        bc3.metric("Txs in Block",    f"{blk_info['tx_count']:,}",
+                   help=f"Number of transactions included in block {blk_info['number']:,}. "
+                        "Ethereum blocks are limited by gas: max ~30M gas per block. "
+                        "Average transaction uses ~21,000 gas → ~1,428 txs at full capacity.")
+        bc4.metric("Gas Utilisation", f"{blk_info['utilisation']}%",
+                   help="gasUsed / gasLimit × 100. EIP-1559 targets 50% utilisation. "
+                        ">50% → baseFee increases next block. <50% → baseFee decreases. "
+                        "baseFee is burned, not paid to validators.")
         st.markdown("---")
 
     # ── Address input ─────────────────────────────────────────────────────
@@ -1488,11 +1817,11 @@ elif "🔌 Live Blockchain Explorer" in section:
             help="EOA wallet or smart contract")
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("📋 Vitalik.eth", use_container_width=True):
+        if st.button("📋 Vitalik.eth", width='stretch'):
             lookup_addr = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
     with col3:
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🏦 Uniswap V3", use_container_width=True):
+        if st.button("🏦 Uniswap V3", width='stretch'):
             lookup_addr = "0xe592427a0aece92de3edee1f18e0157c05861564"
 
     if lookup_addr:
@@ -1527,10 +1856,21 @@ elif "🔌 Live Blockchain Explorer" in section:
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("ETH Balance",
                           f"{balance:.6f} ETH" if balance is not None else "N/A",
-                          delta=f"≈ ${balance * 2500:,.0f}" if balance else None, delta_color="off")
-                m2.metric("Nonce (Sent Txs)", f"{tx_count:,}" if tx_count is not None else "N/A")
-                m3.metric("Address Type",    "Contract 📄" if is_contract else "EOA 👤")
-                m4.metric("Recent Txs",      f"{len(tx_df):,}")
+                          delta=f"≈ ${balance * 2500:,.0f}" if balance else None, delta_color="off",
+                          help="Native ETH balance via eth_getBalance RPC. "
+                               "1 ETH = 10^18 Wei. Converted at ~$2500/ETH for USD estimate.")
+                m2.metric("Nonce (Sent Txs)", f"{tx_count:,}" if tx_count is not None else "N/A",
+                          help="Transaction count (nonce) from eth_getTransactionCount. "
+                               "For EOAs: number of transactions sent FROM this address. "
+                               "For contracts: number of contract creations triggered.")
+                m3.metric("Address Type",    "Contract 📄" if is_contract else "EOA 👤",
+                          help="EOA (Externally Owned Account) = controlled by a private key. "
+                               "Contract = EVM bytecode deployed at this address. "
+                               "Determined by eth_getCode — if non-empty bytecode exists = contract.")
+                m4.metric("Recent Txs",      f"{len(tx_df):,}",
+                          help=f"Last {len(tx_df):,} transactions from Etherscan API "
+                               "(txlist endpoint, sorted by blockNumber desc). "
+                               "Includes normal ETH transfers and contract interactions.")
 
                 # DeFi protocols
                 if not tx_df.empty:
@@ -1551,9 +1891,9 @@ elif "🔌 Live Blockchain Explorer" in section:
                     if not tx_df.empty:
                         # Timeline chart
                         st.plotly_chart(plot_transaction_timeline(tx_df, dark=st.session_state.dark_mode),
-                                        use_container_width=True)
+                                        width='stretch')
                         display_tx = tx_df.drop(columns=["Full Hash"], errors="ignore")
-                        st.dataframe(display_tx, use_container_width=True, height=380,
+                        st.dataframe(display_tx, width='stretch', height=380,
                                      column_config={
                                          "From":           st.column_config.TextColumn("From",    width="large"),
                                          "To":             st.column_config.TextColumn("To",      width="large"),
@@ -1571,7 +1911,7 @@ elif "🔌 Live Blockchain Explorer" in section:
                     if not token_df.empty:
                         tc1, tc2 = st.columns([2, 1])
                         with tc1:
-                            st.dataframe(token_df, use_container_width=True, height=360,
+                            st.dataframe(token_df, width='stretch', height=360,
                                          column_config={
                                              "From":     st.column_config.TextColumn("From",     width="large"),
                                              "To":       st.column_config.TextColumn("To",       width="large"),
@@ -1585,7 +1925,7 @@ elif "🔌 Live Blockchain Explorer" in section:
                                                  color_discrete_sequence=px.colors.qualitative.Set3)
                                 fig_pie.update_layout(template=p["plotly"], height=300,
                                                       paper_bgcolor="rgba(0,0,0,0)")
-                                st.plotly_chart(fig_pie, use_container_width=True)
+                                st.plotly_chart(fig_pie, width='stretch')
                         st.download_button("⬇️ Export Token Transfers", token_df.to_csv(index=False),
                                            file_name=f"tokens_{addr_clean[:10]}.csv", mime="text/csv")
                     else:
@@ -1601,7 +1941,7 @@ elif "🔌 Live Blockchain Explorer" in section:
                                                 help="1 block ≈ 12 seconds · 7200 blocks ≈ 1 day")
                     with eb_col2:
                         st.markdown("<br>", unsafe_allow_html=True)
-                        fetch_events_btn = st.button("⛓️ Fetch Events", type="primary", use_container_width=True)
+                        fetch_events_btn = st.button("⛓️ Fetch Events", type="primary", width='stretch')
 
                     if fetch_events_btn:
                         if get_web3() is None:
@@ -1620,19 +1960,30 @@ Check that `WEB3_PROVIDER_URL` is set correctly in Replit Secrets, or try refres
                             else:
                                 # Summary bar chart
                                 st.plotly_chart(plot_event_log_chart(ev_df, dark=st.session_state.dark_mode),
-                                                use_container_width=True)
+                                                width='stretch')
 
                                 # Metrics
                                 ev1, ev2, ev3, ev4 = st.columns(4)
-                                ev1.metric("Total Events",  f"{len(ev_df):,}")
-                                ev2.metric("Received",      f"{len(ev_df[ev_df['Direction']=='Received']):,}")
-                                ev3.metric("Sent",          f"{len(ev_df[ev_df['Direction']=='Sent']):,}")
+                                ev1.metric("Total Events",  f"{len(ev_df):,}",
+                                           help="Total ERC-20 Transfer events emitted by this address "
+                                                "over the requested block range. Each Transfer event = "
+                                                "1 token movement. Decoded from raw eth_getLogs response.")
+                                ev2.metric("Received",      f"{len(ev_df[ev_df['Direction']=='Received']):,}",
+                                           help="Events where topic[2] (to_address) matches the queried wallet. "
+                                                "topic[2] is a 32-byte padded Ethereum address extracted from "
+                                                "the log's indexed parameters.")
+                                ev3.metric("Sent",          f"{len(ev_df[ev_df['Direction']=='Sent']):,}",
+                                           help="Events where topic[1] (from_address) matches the queried wallet. "
+                                                "topic[1] = 0x000...0 for mint events (new tokens created).")
                                 unique_tokens = ev_df["Contract"].nunique()
-                                ev4.metric("Unique Tokens", f"{unique_tokens:,}")
+                                ev4.metric("Unique Tokens", f"{unique_tokens:,}",
+                                           help=f"{unique_tokens:,} distinct ERC-20 contract addresses "
+                                                "involved in transfer events. Each contract has its own "
+                                                "symbol, decimals, and total supply.")
 
                                 # Table
                                 show_ev = ev_df.drop(columns=["Etherscan"], errors="ignore").head(100)
-                                st.dataframe(show_ev, use_container_width=True, height=380,
+                                st.dataframe(show_ev, width='stretch', height=380,
                                              column_config={
                                                  "From":      st.column_config.TextColumn("From",   width="large"),
                                                  "To":        st.column_config.TextColumn("To",     width="large"),
@@ -1681,23 +2032,41 @@ Web3.py's `eth_getLogs` lets us filter by topic and address, then we manually de
                         with gc1:
                             sent_ds = edges[edges["from_id"] == wid_found]
                             recv_ds = edges[edges["to_id"]   == wid_found]
-                            st.metric("Txs Sent (dataset)",     f"{len(sent_ds):,}")
-                            st.metric("Txs Received (dataset)", f"{len(recv_ds):,}")
-                            st.metric("Unique Counterparties",
-                                      f"{len(set(sent_ds['to_id'].tolist()) | set(recv_ds['from_id'].tolist())):,}")
+                            _cps = set(sent_ds['to_id'].tolist()) | set(recv_ds['from_id'].tolist())
+                            st.metric("Txs Sent (dataset)",     f"{len(sent_ds):,}",
+                                      help=f"Out-degree d⁺({wid_found}) in the GNN training graph. "
+                                           f"Transactions where this address appears in the from_id column.")
+                            st.metric("Txs Received (dataset)", f"{len(recv_ds):,}",
+                                      help=f"In-degree d⁻({wid_found}) in the GNN training graph. "
+                                           f"Transactions where this address appears in the to_id column.")
+                            st.metric("Unique Counterparties",  f"{len(_cps):,}",
+                                      help=f"|N({wid_found})| = {len(_cps):,} unique wallets in 1-hop neighbourhood. "
+                                           "Combined senders and receivers (undirected adjacency). "
+                                           "This is the node's effective local context for GraphSAGE aggregation.")
                         with gc2:
                             if len(wfi) > 0:
                                 rs_g = float(wfi.iloc[0]["risk_score"])
                                 rl_g = wfi.iloc[0]["risk_level"]
                                 col_r2 = {"Critical":"#f85149","High":"#ff7b72","Medium":"#e3b341","Low":"#3fb950"}.get(rl_g, p["accent"])
                                 st.markdown(f'<div class="fraud-alert">', unsafe_allow_html=True)
-                                st.metric("GNN Risk Score", f"{rs_g:.1f} / 100")
-                                st.metric("Risk Level", rl_g)
+                                st.metric("GNN Risk Score", f"{rs_g:.1f} / 100",
+                                          help=f"Isolation Forest anomaly score normalised to 0–100. "
+                                               f"s(x,n) = 2^(−E[h(x)]/c(n)) → inverted & scaled. "
+                                               f"Score {rs_g:.1f} = {rl_g} risk tier.")
+                                st.metric("Risk Level", rl_g,
+                                          help="Risk tier based on score: Critical ≥80 · High 60–79 · "
+                                               "Medium 35–59 · Low <35. "
+                                               "Isolation Forest flagged this wallet as fraud_label = −1.")
                                 st.markdown("</div>", unsafe_allow_html=True)
                             else:
                                 st.markdown('<div class="success-box">', unsafe_allow_html=True)
-                                st.metric("GNN Risk Score", "0 / 100")
-                                st.metric("Risk Level",     "Clean ✅")
+                                st.metric("GNN Risk Score", "0 / 100",
+                                          help="Isolation Forest did not flag this wallet. "
+                                               "fraud_label = +1 (inlier). Isolation path length ≈ c(n) — "
+                                               "normal behaviour in 64-dim embedding space.")
+                                st.metric("Risk Level",     "Clean ✅",
+                                          help="No anomaly detected. Wallet embedding is within the "
+                                               "normal cluster in latent space.")
                                 st.markdown("</div>", unsafe_allow_html=True)
                         st.markdown("---")
                         st.markdown("**🔮 Quick Link Predictions**")
@@ -1707,12 +2076,12 @@ Web3.py's `eth_getLogs` lets us filter by topic and address, then we manually de
                             for sid in sample_ids:
                                 qp_prob = compute_link_probability(embeddings[wid_found], embeddings[sid])
                                 try:    sa = le.inverse_transform([int(sid)])[0]
-                                except: sa = f"ID {sid}"
+                                except Exception: sa = f"ID {sid}"
                                 si = fraud_df[fraud_df["wallet_id"] == sid]
                                 qp_rows.append({"Target": sa, "Probability": round(qp_prob, 4),
                                                 "Target Risk": si.iloc[0]["risk_level"] if len(si) > 0 else "Clean"})
                             st.dataframe(pd.DataFrame(qp_rows).sort_values("Probability", ascending=False),
-                                         use_container_width=True, hide_index=True,
+                                         width='stretch', hide_index=True,
                                          column_config={"Target": st.column_config.TextColumn("Target", width="large"),
                                                         "Probability": st.column_config.NumberColumn("Prob", format="%.4f")})
                         st.markdown("**🧬 Node Embedding (8×8 heatmap)**")
@@ -1724,7 +2093,7 @@ Web3.py's `eth_getLogs` lets us filter by topic and address, then we manually de
                                                margin=dict(t=5,b=5,l=5,r=5),
                                                xaxis=dict(showticklabels=False),
                                                yaxis=dict(showticklabels=False))
-                        st.plotly_chart(fig_emb, use_container_width=True)
+                        st.plotly_chart(fig_emb, width='stretch')
                     else:
                         st.markdown('<div class="info-box">', unsafe_allow_html=True)
                         st.info("Address not in the GNN training dataset (trained on a historical snapshot of ~25,542 wallets). Live blockchain data still shown in other tabs.")
