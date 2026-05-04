@@ -13,7 +13,6 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -1304,9 +1303,9 @@ elif "🏗️ Architecture & ML" in section:
         f'100 live particles flow through the GraphSAGE pipeline. '
         f'<b>Hover</b> any layer for details. <b>Click</b> to burst 18 particles from that layer.</p>',
         unsafe_allow_html=True)
-    components.html(
+    st.iframe(
         render_architecture_animation(dark=st.session_state.dark_mode),
-        height=540, scrolling=False)
+        height=540)
 
     st.markdown("---")
     tab_layers, tab_math, tab_decoder, tab_fraud_ml, tab_config = st.tabs([
