@@ -36,7 +36,14 @@ def plot_loss_curve(loss_history: np.ndarray, dark: bool = True) -> go.Figure:
         line=dict(color=p["primary"], width=2.5),
         fill="tozeroy",
         fillcolor=f"rgba({'88,166,255' if dark else '9,105,218'},0.07)",
-        hovertemplate="Epoch %{x}<br>Loss: %{y:,.1f}<extra></extra>",
+        hovertemplate=(
+            "<b>Training Epoch %{x}</b><br>"
+            "BCE Loss: %{y:,.3f}<br>"
+            "<span style='color:#8b949e;font-size:11px;'>"
+            "L = −[y·log(ŷ) + (1−y)·log(1−ŷ)]<br>"
+            "y=true label · ŷ=predicted probability"
+            "</span><extra></extra>"
+        ),
     ))
     # Best epoch star marker
     fig.add_trace(go.Scatter(
@@ -44,7 +51,11 @@ def plot_loss_curve(loss_history: np.ndarray, dark: bool = True) -> go.Figure:
         mode="markers", name=f"Best (epoch {best_epoch})",
         marker=dict(color=p["success"], size=12, symbol="star",
                     line=dict(color=p["bg"], width=1.5)),
-        hovertemplate=f"Best epoch {best_epoch}<br>Loss: {best_loss:,.1f}<extra></extra>",
+        hovertemplate=(
+            f"<b>⭐ Best Epoch: {best_epoch}</b><br>"
+            f"Minimum BCE Loss: {best_loss:,.3f}<br>"
+            f"Reduction from start: {(init_loss - best_loss)/init_loss*100:.1f}%<extra></extra>"
+        ),
     ))
     # Initial loss annotation (top-left)
     fig.add_annotation(
@@ -102,7 +113,15 @@ def plot_roc_curve(fpr, tpr, auc_score: float, dark: bool = True) -> go.Figure:
         line=dict(color=p["primary"], width=2.5),
         fill="tozeroy",
         fillcolor=f"rgba({'88,166,255' if dark else '9,105,218'},0.12)",
-        hovertemplate="FPR: %{x:.3f}<br>TPR: %{y:.3f}<extra></extra>",
+        hovertemplate=(
+            "<b>ROC Operating Point</b><br>"
+            "FPR = FP / (FP + TN) : %{x:.4f}<br>"
+            "TPR = TP / (TP + FN) : %{y:.4f}<br>"
+            "<i style='color:#8b949e;font-size:11px;'>"
+            "Sensitivity = Recall = Hit Rate = TPR<br>"
+            "Specificity = TN / (TN + FP) = 1 − FPR"
+            "</i><extra></extra>"
+        ),
     ))
     fig.add_trace(go.Scatter(
         x=[0, 1], y=[0, 1], mode="lines",
@@ -119,7 +138,6 @@ def plot_roc_curve(fpr, tpr, auc_score: float, dark: bool = True) -> go.Figure:
         bgcolor=p["card"], bordercolor=auc_color, borderwidth=1.5,
         borderpad=8,
     )
-    # Qualitative label below the AUC badge
     quality = ("Perfect separation" if auc_score >= 0.99 else
                "Excellent" if auc_score >= 0.9 else
                "Good" if auc_score >= 0.7 else "Moderate")
@@ -130,6 +148,30 @@ def plot_roc_curve(fpr, tpr, auc_score: float, dark: bool = True) -> go.Figure:
         font=dict(color=p["text_muted"], size=10),
         bgcolor="rgba(0,0,0,0)",
     )
+    # AUC integral formula annotation
+    fig.add_annotation(
+        x=0.04, y=0.74, xref="paper", yref="paper",
+        text="AUC = ∫₀¹ TPR(t) dt",
+        showarrow=False,
+        font=dict(color=p["text_subtle"], size=9, family="JetBrains Mono, monospace"),
+        bgcolor="rgba(0,0,0,0)",
+    )
+    # Youden's J index: max(TPR - FPR) operating point
+    j_index = np.array(tpr) - np.array(fpr)
+    best_j = int(np.argmax(j_index))
+    fig.add_trace(go.Scatter(
+        x=[float(fpr[best_j])], y=[float(tpr[best_j])],
+        mode="markers", name=f"Youden's J (FPR={float(fpr[best_j]):.3f})",
+        marker=dict(color=p["warning"], size=11, symbol="diamond",
+                    line=dict(color=p["bg"], width=1.5)),
+        hovertemplate=(
+            "<b>Youden's J Operating Point</b><br>"
+            f"J = TPR − FPR = {j_index[best_j]:.4f}<br>"
+            f"FPR: {float(fpr[best_j]):.4f}  TPR: {float(tpr[best_j]):.4f}<br>"
+            "<i style='color:#8b949e;font-size:11px;'>Optimal threshold by J-statistic</i>"
+            "<extra></extra>"
+        ),
+    ))
     # Random baseline label
     fig.add_annotation(
         x=0.76, y=0.68, xref="paper", yref="paper",
@@ -140,7 +182,7 @@ def plot_roc_curve(fpr, tpr, auc_score: float, dark: bool = True) -> go.Figure:
         textangle=-38,
     )
     fig.update_layout(
-        title="ROC Curve — Isolation Forest on GNN Embeddings",
+        title="ROC Curve — Isolation Forest on GNN Embeddings  (AUC = ∫₀¹ TPR(t) dt)",
         xaxis_title="False Positive Rate",
         yaxis_title="True Positive Rate",
         xaxis=dict(range=[-0.02, 1.02], constrain="domain",
@@ -167,9 +209,21 @@ def plot_fraud_distribution(fraud_df: pd.DataFrame, dark: bool = True) -> go.Fig
 
     fig = px.histogram(
         fraud_df, x="risk_score", nbins=50,
-        title="Risk Score Distribution  (0 = safe · 100 = critical)",
+        title="Risk Score Distribution  (0 = safe · 100 = critical)  ·  s(x,n) = 2^(−E[h(x)] / c(n))",
         labels={"risk_score": "Risk Score", "count": "Wallets"},
         color_discrete_sequence=[p["danger"]],
+        hover_data={"risk_score": ":.1f"},
+    )
+    fig.update_traces(
+        hovertemplate=(
+            "<b>Risk Score Band: %{x:.0f}</b><br>"
+            "Wallets in band: %{y:,}<br>"
+            "<span style='color:#8b949e;font-size:11px;'>"
+            "IF Score: s(x,n) = 2^(−E[h(x)] / c(n))<br>"
+            "Risk = (s_max − s) / (s_max − s_min) × 100<br>"
+            "Higher risk score → shorter isolation path"
+            "</span><extra></extra>"
+        )
     )
     tiers = [
         (35, f"Medium<br><b>{n_medium}</b>", p["warning"]),
@@ -268,12 +322,18 @@ def create_network_subgraph(
         for node in nids:
             x, y = pos[node]; xs.append(x); ys.append(y)
             try:    addr = le.inverse_transform([node])[0]
-            except: addr = f"ID {node}"
+            except Exception: addr = f"ID {node}"
             rs = fraud_risk.get(node); rl = fraud_level.get(node,"Clean")
-            hvr.append(f"<b>{addr}</b><br>ID:{node}<br>Risk:{rl}"
-                       + (f" ({rs:.1f}/100)" if rs else "")
-                       + f"<br>Out:{out_deg.get(node,0)} In:{in_deg.get(node,0)}"
-                       + (" ⭐CENTER" if node==wallet_id else ""))
+            hvr.append(
+                f"<b>{addr[:22]}{'…' if len(addr)>22 else ''}</b>"
+                f"<br>Wallet ID: {node}"
+                f"<br>Risk Level: {rl}" + (f" · Score: {rs:.1f}/100" if rs else " · Score: —")
+                + f"<br>Out-degree (sent txs): {out_deg.get(node,0)}"
+                + f"<br>In-degree (recv txs): {in_deg.get(node,0)}"
+                + f"<br>Total degree: {out_deg.get(node,0) + in_deg.get(node,0)}"
+                + ("<br><b>⭐ QUERY CENTRE</b>" if node==wallet_id else "")
+                + ("<br><i style='color:#f85149;'>⚠ Flagged by Isolation Forest</i>" if (rs and rs > 0) else "")
+            )
             sizes.append(cfg["size"] + min(int((in_deg.get(node,0)+out_deg.get(node,0))**0.5)*2,14))
             syms.append("star" if node==wallet_id else "circle")
         traces.append(go.Scatter(
@@ -329,20 +389,25 @@ def plot_pca_embeddings(
         else:
             rl = "Clean"; rs = 0.0
         try:    addr = le.inverse_transform([int(wid)])[0]
-        except: addr = f"ID {wid}"
+        except Exception: addr = f"ID {wid}"
 
         labels.append(rl)
         colors.append({"Critical":"#f85149","High":"#ff7b72","Medium":"#e3b341",
                        "Low":"#3fb950","Clean":"#58a6ff"}.get(rl, p["text_muted"]))
         sizes.append(10 if rs > 60 else (7 if rs > 35 else 5))
-        hover.append(f"<b>ID {wid}</b><br>{addr[:20]}…<br>Risk: {rl} ({rs:.1f})")
+        hover.append(
+            f"<b>ID {wid}</b><br>{addr[:22]}{'…' if len(addr)>22 else ''}"
+            f"<br>Risk: {rl} · Score: {rs:.1f}/100"
+            f"<br><i style='color:#8b949e;font-size:10px;'>z = W·x via PCA · z ∈ ℝ²"
+            f"<br>Wallets nearby = similar GNN embedding</i>"
+        )
 
     # Highlight queried wallet
     hl_trace = None
     if highlight_id >= 0 and highlight_id in sampled_ids:
         idx = list(sampled_ids).index(highlight_id)
         try: hl_addr = le.inverse_transform([highlight_id])[0]
-        except: hl_addr = f"ID {highlight_id}"
+        except Exception: hl_addr = f"ID {highlight_id}"
         if mode_3d and coords.shape[1] >= 3:
             hl_trace = go.Scatter3d(
                 x=[coords[idx,0]], y=[coords[idx,1]], z=[coords[idx,2]],
@@ -904,12 +969,26 @@ def plot_decoder_signals(emb_a: np.ndarray, emb_b: np.ndarray, dark: bool = True
     colors = [p["primary"], p["accent"], p["success"]]
 
     fig = go.Figure()
-    for sig, val, col in zip(signals, raw_vals, colors):
+    formulas = [
+        f"0.5 × dot(a,b) = 0.5 × {dot:.4f} = {dot*0.5:.4f}",
+        f"0.3 × cos(a,b) × |dot| = 0.3 × {cosine:.4f} × {abs(dot):.4f} = {raw_vals[1]:.4f}",
+        f"0.2 × L2sim(a,b) × |dot| = 0.2 × {l2_sim:.4f} × {abs(dot):.4f} = {raw_vals[2]:.4f}",
+    ]
+    full_names = ["Dot Product (weight 0.50)", "Cosine Similarity (weight 0.30)", "L2 Similarity (weight 0.20)"]
+    for sig, val, col, formula, fname in zip(signals, raw_vals, colors, formulas, full_names):
         fig.add_trace(go.Bar(
             name=sig, x=[sig.split("\n")[0]], y=[val],
             marker_color=col,
             text=[f"{val:.3f}"],
             textposition="outside",
+            hovertemplate=(
+                f"<b>{fname}</b><br>"
+                f"Weighted contribution: {val:.5f}<br>"
+                f"Formula: {formula}<br>"
+                "<i style='color:#8b949e;font-size:11px;'>"
+                "P(link) = σ(0.5·dot + 0.3·cos·|dot| + 0.2·L2sim·|dot|)"
+                "</i><extra></extra>"
+            ),
         ))
     fig.add_hline(y=0, line=dict(color=p["border2"], width=1))
     fig.update_layout(
@@ -948,8 +1027,15 @@ def plot_transaction_timeline(tx_df: pd.DataFrame, dark: bool = True) -> go.Figu
             textfont=dict(size=7, color=p["text_muted"]),
             textposition="top center",
             hovertext=grp.apply(
-                lambda r: f"Block {r['Block']}<br>To: {r['To'][:12]}…<br>"
-                          f"Value: {r['Value (ETH)']} ETH<br>Protocol: {r['Protocol']}", axis=1),
+                lambda r: (
+                    f"<b>Block {r['Block']}</b><br>"
+                    f"To: {str(r['To'])[:16]}…<br>"
+                    f"Value: {r['Value (ETH)']:.6f} ETH<br>"
+                    f"Gas: {r.get('Gas (Gwei)', '—')} Gwei<br>"
+                    f"Status: {r.get('Status','—')}<br>"
+                    f"Protocol: {r.get('Protocol','—')}<br>"
+                    f"<i style='color:#8b949e;font-size:10px;'>Bubble size ∝ ETH value</i>"
+                ), axis=1),
             hoverinfo="text",
             name=f"{'Success' if status=='✅' else 'Failed'}",
         ))
