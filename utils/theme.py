@@ -488,6 +488,195 @@ html,body,[class*="css"]{{font-family:'Inter',system-ui,-apple-system,BlinkMacSy
 .stApp hr{{border-color:{p['separator']}!important;opacity:0.6;}}
 .stApp [data-testid="stMarkdownContainer"] a{{color:{p['primary']}!important;text-decoration:none!important;}}
 .stApp [data-testid="stMarkdownContainer"] a:hover{{text-decoration:underline!important;}}
+
+/* ══════════════════════════════════════════
+   KEYFRAME ANIMATIONS
+══════════════════════════════════════════ */
+@keyframes slideInUp{{0%{{opacity:0;transform:translateY(18px);}}100%{{opacity:1;transform:translateY(0);}}}}
+@keyframes fadeInScale{{0%{{opacity:0;transform:scale(0.95);}}100%{{opacity:1;transform:scale(1);}}}}
+@keyframes shimmerFlow{{0%{{background-position:-200% center;}}100%{{background-position:200% center;}}}}
+@keyframes gradientShift{{0%,100%{{background-position:0% 50%;}}50%{{background-position:100% 50%;}}}}
+@keyframes glowPulse{{0%,100%{{box-shadow:0 0 10px {'rgba(10,132,255,0.25)' if dark else 'rgba(0,122,255,0.2)'};}}50%{{box-shadow:0 0 28px {'rgba(10,132,255,0.55)' if dark else 'rgba(0,122,255,0.4)'};}}}}
+@keyframes floatUp{{0%,100%{{transform:translateY(0);}}50%{{transform:translateY(-5px);}}}}
+@keyframes borderGlow{{0%,100%{{border-color:{p['border']};}}50%{{border-color:{p['primary']};}}}}
+@keyframes countUp{{from{{opacity:0;transform:translateY(12px);}}to{{opacity:1;transform:translateY(0);}}}}
+@keyframes rippleOut{{from{{transform:scale(0);opacity:0.5;}}to{{transform:scale(3.5);opacity:0;}}}}
+@keyframes fillBar{{from{{width:0%;}}to{{width:var(--bar-w);}}}}
+@keyframes scanLine{{0%{{top:-5%;}}100%{{top:110%;}}}}
+@keyframes particleFloat{{0%,100%{{transform:translateY(0) translateX(0);opacity:0.6;}}33%{{transform:translateY(-8px) translateX(4px);opacity:1;}}66%{{transform:translateY(-4px) translateX(-3px);opacity:0.8;}}}}
+
+/* ══════════════════════════════════════════
+   ENTRANCE ANIMATIONS (staggered)
+══════════════════════════════════════════ */
+.hero-wrap{{animation:fadeInScale 0.5s cubic-bezier(0.34,1.56,0.64,1) both;}}
+.metric-card{{animation:slideInUp 0.4s ease both;}}
+.layer-card{{animation:slideInUp 0.35s ease both;transition:all 0.22s cubic-bezier(0.34,1.56,0.64,1);}}
+.value-card{{animation:slideInUp 0.4s ease both;}}
+.formula-block{{animation:fadeInScale 0.3s ease both;transition:all 0.18s ease;}}
+.formula-block:hover{{background:{'rgba(0,0,0,0.40)' if dark else 'rgba(0,122,255,0.07)'};border-left-color:{p['primary']};transform:translateX(2px);}}
+.layer-card:hover{{border-color:{'rgba(10,132,255,0.35)' if dark else 'rgba(0,122,255,0.25)'};box-shadow:{'0 6px 24px rgba(0,0,0,0.4),0 0 0 1px rgba(10,132,255,0.12)' if dark else '0 6px 20px rgba(0,122,255,0.10)'};transform:translateX(4px);}}
+
+/* ══════════════════════════════════════════
+   ANIMATED GRADIENT TEXT
+══════════════════════════════════════════ */
+.animated-gradient-text{{
+    background:linear-gradient(270deg,{p['grad_start']},{p['grad_mid']},{p['grad_end']},{p['primary2']},{p['grad_start']});
+    background-size:400% 400%;
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    animation:gradientShift 6s ease infinite;}}
+
+/* ══════════════════════════════════════════
+   MATH TOOLTIP SYSTEM
+   Usage: <span class="math-term">ROC-AUC
+            <span class="math-popup">...</span>
+          </span>
+══════════════════════════════════════════ */
+.math-term{{
+    position:relative;display:inline-block;
+    border-bottom:1px dashed {p['primary']};cursor:help;color:{p['primary']};
+    font-weight:600;transition:color 0.15s;}}
+.math-term:hover{{color:{p['primary2']};}}
+.math-term .math-popup{{
+    visibility:hidden;opacity:0;
+    position:absolute;z-index:9999;
+    bottom:130%;left:50%;transform:translateX(-50%) scale(0.96);
+    background:{'rgba(17,18,32,0.98)' if dark else 'rgba(255,255,255,0.98)'};
+    border:1px solid {'rgba(10,132,255,0.40)' if dark else 'rgba(0,122,255,0.30)'};
+    border-radius:14px;padding:14px 18px;
+    min-width:300px;max-width:440px;
+    box-shadow:{'0 16px 56px rgba(0,0,0,0.65),0 0 0 1px rgba(10,132,255,0.15)' if dark else '0 12px 40px rgba(0,0,0,0.18),0 0 0 1px rgba(0,122,255,0.12)'};
+    transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events:none;white-space:normal;text-align:left;}}
+.math-term:hover .math-popup{{visibility:visible;opacity:1;transform:translateX(-50%) scale(1);}}
+.math-popup-title{{font-size:0.86rem;font-weight:700;color:{p['text']};margin-bottom:6px;letter-spacing:-0.1px;}}
+.math-popup-formula{{
+    font-family:'JetBrains Mono',monospace;font-size:0.78rem;
+    background:{'rgba(0,0,0,0.32)' if dark else 'rgba(0,122,255,0.05)'};
+    border-left:3px solid {p['accent']};border-radius:0 8px 8px 0;
+    padding:7px 11px;color:{'#9D9BFF' if dark else p['accent']};
+    margin:6px 0;line-height:1.5;}}
+.math-popup-desc{{font-size:0.76rem;color:{p['text_muted']};line-height:1.5;margin-top:4px;}}
+.math-popup-where{{font-size:0.72rem;color:{p['text_subtle']};margin-top:5px;line-height:1.45;}}
+
+/* ══════════════════════════════════════════
+   ANIMATED KPI CARD
+══════════════════════════════════════════ */
+.kpi-card{{
+    background:{'rgba(255,255,255,0.04)' if dark else p['card']};
+    border:1px solid {p['border']};border-radius:18px;
+    padding:1.1rem 1.3rem;position:relative;overflow:hidden;
+    transition:all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    box-shadow:{'0 2px 20px rgba(0,0,0,0.35)' if dark else '0 2px 12px rgba(0,0,0,0.06)'};
+    animation:slideInUp 0.4s ease both;}}
+.kpi-card::before{{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,{p['grad_start']},{p['grad_mid']},{p['grad_end']});
+    background-size:200%;animation:shimmerFlow 3s linear infinite;}}
+.kpi-card:hover{{
+    transform:translateY(-5px);
+    border-color:{'rgba(10,132,255,0.45)' if dark else 'rgba(0,122,255,0.32)'};
+    box-shadow:{'0 14px 44px rgba(0,0,0,0.55),0 0 0 1px rgba(10,132,255,0.20)' if dark else '0 14px 40px rgba(0,122,255,0.16)'};}}
+.kpi-label{{font-size:0.70rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:{p['text_muted']};margin-bottom:4px;}}
+.kpi-value{{font-size:2rem;font-weight:900;letter-spacing:-1px;color:{p['text']};font-variant-numeric:tabular-nums;animation:countUp 0.5s ease;}}
+.kpi-delta{{font-size:0.76rem;color:{p['text_muted']};margin-top:3px;}}
+
+/* ══════════════════════════════════════════
+   FORMULA CARD (hover to expand context)
+══════════════════════════════════════════ */
+.formula-card{{
+    background:{'rgba(255,255,255,0.03)' if dark else 'rgba(0,122,255,0.03)'};
+    border:1px solid {p['border']};border-radius:14px;
+    padding:0.9rem 1.1rem;margin:0.45rem 0;
+    transition:all 0.2s ease;cursor:default;}}
+.formula-card:hover{{
+    background:{'rgba(10,132,255,0.07)' if dark else 'rgba(0,122,255,0.06)'};
+    border-color:{'rgba(10,132,255,0.28)' if dark else 'rgba(0,122,255,0.22)'};
+    transform:translateX(4px);
+    box-shadow:{'0 4px 16px rgba(0,0,0,0.25)' if dark else '0 4px 12px rgba(0,122,255,0.08)'};}}
+.formula-card-title{{font-size:0.80rem;font-weight:700;color:{p['primary']};margin-bottom:5px;}}
+.formula-card-eq{{font-family:'JetBrains Mono',monospace;font-size:0.80rem;color:{'#9D9BFF' if dark else p['accent']};line-height:1.55;}}
+.formula-card-desc{{font-size:0.73rem;color:{p['text_muted']};margin-top:5px;line-height:1.45;}}
+
+/* ══════════════════════════════════════════
+   SECTION ANIMATED DIVIDER
+══════════════════════════════════════════ */
+.section-divider{{
+    height:1px;margin:1.4rem 0;
+    background:linear-gradient(90deg,transparent,{p['primary']},{'rgba(94,92,230,0.6)' if dark else 'rgba(88,86,214,0.4)'},transparent);
+    background-size:200%;animation:shimmerFlow 5s linear infinite;}}
+
+/* ══════════════════════════════════════════
+   PROBABILITY GAUGE
+══════════════════════════════════════════ */
+.prob-gauge-wrap{{text-align:center;padding:0.8rem 0;}}
+.prob-gauge-value{{
+    font-size:2.8rem;font-weight:900;letter-spacing:-2px;
+    font-variant-numeric:tabular-nums;
+    animation:countUp 0.7s cubic-bezier(0.34,1.56,0.64,1) both;}}
+.prob-bar-track{{
+    height:10px;border-radius:999px;
+    background:{'rgba(255,255,255,0.07)' if dark else 'rgba(0,0,0,0.07)'};
+    overflow:hidden;margin:0.5rem 0;position:relative;}}
+.prob-bar-fill{{
+    height:100%;border-radius:999px;
+    background-size:200%;animation:shimmerFlow 2s linear infinite,fillBar 1s cubic-bezier(0.34,1.56,0.64,1) forwards;}}
+
+/* ══════════════════════════════════════════
+   ANIMATED RISK BAR
+══════════════════════════════════════════ */
+.risk-bar-track{{height:10px;border-radius:999px;background:{'rgba(255,255,255,0.07)' if dark else 'rgba(0,0,0,0.06)'};overflow:hidden;margin:4px 0 8px;}}
+.risk-bar-fill{{height:100%;border-radius:999px;animation:fillBar 1.1s cubic-bezier(0.34,1.56,0.64,1) forwards;background-size:200%;}}
+
+/* ══════════════════════════════════════════
+   METRIC CONTAINER HOVER LIFT
+══════════════════════════════════════════ */
+[data-testid="metric-container"]{{transition:transform 0.18s ease,box-shadow 0.18s ease;border-radius:12px;}}
+[data-testid="metric-container"]:hover{{transform:translateY(-2px);box-shadow:{'0 6px 20px rgba(0,0,0,0.3)' if dark else '0 4px 12px rgba(0,0,0,0.08)'};}}
+
+/* ══════════════════════════════════════════
+   BUTTON SHIMMER EFFECT
+══════════════════════════════════════════ */
+.stButton>button{{position:relative;overflow:hidden;}}
+.stButton>button::after{{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,0.10) 50%,transparent 60%);transform:translateX(-150%);transition:transform 0.5s ease;pointer-events:none;}}
+.stButton>button:hover::after{{transform:translateX(150%);}}
+
+/* ══════════════════════════════════════════
+   CUSTOM SCROLLBAR
+══════════════════════════════════════════ */
+::-webkit-scrollbar{{width:5px;height:5px;}}
+::-webkit-scrollbar-track{{background:transparent;}}
+::-webkit-scrollbar-thumb{{background:{'rgba(255,255,255,0.12)' if dark else 'rgba(0,0,0,0.14)'};border-radius:999px;}}
+::-webkit-scrollbar-thumb:hover{{background:{'rgba(255,255,255,0.22)' if dark else 'rgba(0,0,0,0.24)'};}}
+
+/* ══════════════════════════════════════════
+   HERO STAT STAGGER
+══════════════════════════════════════════ */
+.hero-stat:nth-child(1){{animation:countUp 0.5s ease 0.05s both;}}
+.hero-stat:nth-child(2){{animation:countUp 0.5s ease 0.12s both;}}
+.hero-stat:nth-child(3){{animation:countUp 0.5s ease 0.19s both;}}
+.hero-stat:nth-child(4){{animation:countUp 0.5s ease 0.26s both;}}
+
+/* ══════════════════════════════════════════
+   CONN PILL ANIMATED BORDER ON HOVER
+══════════════════════════════════════════ */
+.conn-pill{{transition:all 0.18s ease;}}
+.conn-pill:hover{{transform:scale(1.02);box-shadow:{'0 2px 12px rgba(48,209,88,0.15)' if dark else '0 2px 8px rgba(52,199,89,0.12)'};}}
+
+/* ══════════════════════════════════════════
+   ANIMATED TAB INDICATOR
+══════════════════════════════════════════ */
+.stTabs [aria-selected="true"]{{
+    background:linear-gradient(135deg,{p['primary']},{p['accent']})!important;
+    box-shadow:0 2px 12px {'rgba(10,132,255,0.35)' if dark else 'rgba(0,122,255,0.25)'}!important;
+    transition:all 0.2s cubic-bezier(0.34,1.56,0.64,1)!important;}}
+.stTabs [data-baseweb="tab"]:hover{{
+    background:{'rgba(10,132,255,0.10)' if dark else 'rgba(0,122,255,0.07)'}!important;
+    color:{p['text']}!important;}}
+
+/* ══════════════════════════════════════════
+   SIDEBAR LOGO ANIMATION
+══════════════════════════════════════════ */
+.sidebar-logo-icon{{animation:floatUp 4s ease-in-out infinite;}}
 </style>"""
 
     st.markdown(css, unsafe_allow_html=True)
