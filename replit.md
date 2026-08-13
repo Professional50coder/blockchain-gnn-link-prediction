@@ -70,7 +70,10 @@ utils/
 Etherscan API key resolved in this priority order (utils/blockchain.py):
 1. `ETHERSCAN_API_KEY` Replit Secret (highest priority — override in Secrets tab)
 2. `ETHERSCAN_API_KEY_DEFAULT` env var (set via Replit env vars)
-3. Built-in fallback key `41NENJ1WX2RNDWTFIFUJXSNECMQ8P9KB45` (always works)
+3. No key — Etherscan's stricter anonymous rate limit applies
+
+> ⚠️ A hard-coded fallback key was previously documented here. It has been removed.
+> Set `ETHERSCAN_API_KEY` yourself; get a free one at https://etherscan.io/myapikey
 
 ## Secrets & Environment Variables
 - `ETHERSCAN_API_KEY` — override API key (optional, fallback pre-configured)
