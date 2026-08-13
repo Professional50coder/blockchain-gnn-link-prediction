@@ -1,14 +1,31 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
 
-# Virtual environment
+# Virtual environments
 venv/
+.venv/
 .env/
+env/
 
-# Large data / artifacts (optional)
+# Secrets — never commit these
+.env
+.env.local
+*.key
+
+# Editor / tooling scratch
+.idea/
+.vscode/
+.local/
+
+# Large regenerated artifacts, except the six the dashboard needs
 *.npy
 *.npz
+!node_embeddings.npy
+!loss_history.npy
+!roc_data.npz
 
 # OS
 .DS_Store
+Thumbs.db
