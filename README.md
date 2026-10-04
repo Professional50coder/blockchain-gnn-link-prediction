@@ -222,6 +222,15 @@ The intent is to reduce the dot product's bias toward high-magnitude (busy) wall
 
 The final run's printed loss swings between about 780 and 20,500 across epochs, so it does not decrease steadily. The ROC data behind the Model Performance screen is in `roc_data.npz`. Do not quote that AUC as a result. Node features are degrees computed over the **full** edge list, before the split, so held-out test edges leak into the features. Random negative pairs are mostly low-degree, so degree alone separates them from real edges. Recomputing features from training edges only is item A1 in the roadmap.
 
+**Leakage-free re-evaluation.** [`train_lp.py`](train_lp.py) splits the edges first, then builds node features and message-passing edges from the training edges only (same two-layer GraphSAGE, 64-d, Adam lr 0.01, 100 epochs, best validation epoch kept). It runs on the committed `ethereum_transactions.csv` (37,116 addresses, 39,680 unique directed edges), not on the older graph behind the shipped artifacts, and writes [`metrics.json`](metrics.json) without touching the dashboard files. Run `python train_lp.py` (needs only `torch`, `numpy`, `pandas`, `scikit-learn`).
+
+| Model (test edges, random negatives) | ROC-AUC |
+|---|---|
+| GraphSAGE, train-only features | 0.714 |
+| Baseline: log-degree sum from train edges (no learning) | 0.855 |
+
+Two things this shows. First, with leakage removed the GNN scores well above the notebook's 0.465, but a non-learned degree baseline still beats it, so the model is mostly recovering degree and the 2-feature input gives it little else to use. Second, validation AUC peaks in the first epochs and then falls to about 0.31 as training continues, because the training edges are used both for message passing and as supervision, so the model memorises them. Holding some training edges out as supervision-only edges, adding richer node features and using a temporal split are the next steps (roadmap A2 onward). The shipped dashboard artifacts have not been regenerated from this run.
+
 ## Design decisions
 
 | Decision | Why | Trade-off |
@@ -378,7 +387,7 @@ Keep individual files under GitHub's 100 MB limit. The largest artifact today is
 
 The full prioritised plan is in [docs/ROADMAP.md](docs/ROADMAP.md). The P0 items:
 
-- **Fix degree-feature leakage** and re-report metrics (A1, A2).
+- **Re-report metrics on the leakage-free split** (A1 done in `train_lp.py`; A2: regenerate the dashboard artifacts from it).
 - **Normalise node features** to stabilise training (A4).
 - **Reconcile the training and serving decoders** (A3).
 - **Retire `app_fixed.py`**, untrack tooling leftovers, and pin dependency versions (D1–D3).

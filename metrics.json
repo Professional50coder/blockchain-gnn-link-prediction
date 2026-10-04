@@ -1,0 +1,17 @@
+{
+  "nodes": 37116,
+  "unique_edges": 39680,
+  "train/val/test": [
+    27776,
+    5952,
+    5952
+  ],
+  "graphsage_val_auc": 0.716,
+  "graphsage_test_auc": 0.7135,
+  "baseline_degree_product_test_auc": 0.8551,
+  "loss_first_last": [
+    14.429,
+    0.4243
+  ],
+  "note": "features and message passing use train edges only; random edge split; random negatives"
+}
