@@ -1,3 +1,9 @@
+nodes=37,116 unique directed edges=39,680
+epoch  20 loss 0.7170 val AUC 0.7136
+epoch  40 loss 0.4774 val AUC 0.3832
+epoch  60 loss 0.4323 val AUC 0.2981
+epoch  80 loss 0.4183 val AUC 0.2972
+epoch 100 loss 0.4073 val AUC 0.2903
 {
   "nodes": 37116,
   "unique_edges": 39680,

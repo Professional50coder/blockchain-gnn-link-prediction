@@ -59,7 +59,7 @@ except Exception as e:
     print("   Make sure 'df' DataFrame exists with from_id and to_id columns")
 
 # -------------------------------
-# 4. Save Fraud Detection Results
+# 4. Save Anomaly Detection Results
 # -------------------------------
 print("\n[4/7] Saving fraud detection results...")
 try:

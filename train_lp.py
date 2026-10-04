@@ -2,7 +2,7 @@
 
 The original notebook computed node degrees over the FULL edge list before splitting, so degree
 alone separated real edges from random negatives. This script splits first, builds features and
-message-passing edges from TRAIN edges only, and reports validation/test ROC-AUC next to two
+message-passing edges from TRAIN edges only (with a supervision-only slice), and reports validation/test ROC-AUC next to two
 non-learned baselines. It writes metrics.json and never touches the dashboard artifacts.
 
     python train_lp.py            # uses ethereum_transactions.csv
@@ -47,7 +47,11 @@ val_neg, test_neg = sample_neg(len(val_e)), sample_neg(len(test_e))
 out_deg = np.bincount(train_e[:, 0], minlength=n)
 in_deg = np.bincount(train_e[:, 1], minlength=n)
 x = torch.tensor(np.log1p(np.stack([out_deg, in_deg], 1)), dtype=torch.float)
-ei = torch.tensor(np.concatenate([train_e, train_e[:, ::-1]]).T.copy(), dtype=torch.long)  # both directions
+# Message passing uses 80% of the train edges; the other 20% are supervision-only, so the model is
+# never scored on an edge it also aggregated over (the cause of the falling validation AUC before).
+p2 = rng.permutation(len(train_e)); k = int(0.8 * len(train_e))
+mp_e, sup_e = train_e[p2[:k]], train_e[p2[k:]]
+ei = torch.tensor(np.concatenate([mp_e, mp_e[:, ::-1]]).T.copy(), dtype=torch.long)  # both directions
 deg = torch.bincount(ei[1], minlength=n).clamp(min=1).float().unsqueeze(1)
 
 class SAGE(torch.nn.Module):
@@ -77,15 +81,15 @@ best, best_state, hist = 0, None, []
 for ep in range(1, EPOCHS + 1):
     model.train(); opt.zero_grad()
     z = model(x)
-    neg = T(sample_neg(len(train_e)))
+    neg = T(sample_neg(len(sup_e)))
     loss = F.binary_cross_entropy_with_logits(
-        torch.cat([score(z, T(train_e)), score(z, neg)]),
-        torch.cat([torch.ones(len(train_e)), torch.zeros(len(neg))]))
+        torch.cat([score(z, T(sup_e)), score(z, neg)]),
+        torch.cat([torch.ones(len(sup_e)), torch.zeros(len(neg))]))
     loss.backward(); opt.step()
     model.eval()
     with torch.no_grad():
         z = model(x)
-    v = auc(z, val_e, val_neg); hist.append(float(loss))
+    v = auc(z, val_e, val_neg); hist.append(float(loss.detach()))
     if v > best: best, best_state = v, {k: t.clone() for k, t in model.state_dict().items()}
     if ep % 20 == 0: print(f"epoch {ep:3d} loss {loss:.4f} val AUC {v:.4f}")
 
@@ -102,7 +106,7 @@ res = {
     "graphsage_test_auc": round(auc(z, test_e, test_neg), 4),
     "baseline_degree_product_test_auc": round(roc_auc_score(lab, np.r_[pa(test_e), pa(test_neg)]), 4),
     "loss_first_last": [round(hist[0], 4), round(hist[-1], 4)],
-    "note": "features and message passing use train edges only; random edge split; random negatives",
+    "note": "features from train edges; message passing on 80% of train edges, loss on the other 20%; random edge split; random negatives",
 }
 print(json.dumps(res, indent=2))
 json.dump(res, open("metrics.json", "w"), indent=2)

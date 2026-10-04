@@ -1,6 +1,6 @@
 """
 app.py  —  Blockchain GNN Transaction Intelligence Dashboard
-GraphSAGE link prediction + Isolation Forest fraud detection on Ethereum Mainnet
+GraphSAGE link prediction + Isolation Forest anomaly scoring on Ethereum Mainnet
 Enhanced with Web3.py event-log parsing, PCA embedding explorer, live architecture diagram.
 """
 import os
@@ -75,7 +75,7 @@ def load_data():
     required = {
         "node_embeddings.npy":   "GNN node embeddings",
         "edges.csv":             "Transaction edge list",
-        "fraudulent_wallets.csv":"Fraud detection results",
+        "fraudulent_wallets.csv":"Anomaly detection results",
         "label_encoder.pkl":     "LabelEncoder (address ↔ ID)",
     }
     missing = [f"• **{f}** — {d}" for f, d in required.items() if not os.path.exists(f)]
@@ -158,7 +158,7 @@ with st.sidebar:
         "🏠 Overview",
         "📊 Graph Analytics",
         "🔮 Link Prediction",
-        "🚨 Fraud Detection",
+        "🚨 Anomaly Detection",
         "📈 Model Performance",
         "🏗️ Architecture & ML",
         "🧬 Embedding Space",
@@ -174,12 +174,12 @@ with st.sidebar:
               help="Node count |V| in GNN graph. Each wallet = 1 row in the embedding matrix ∈ ℝ^(|V|×64).")
     st.metric("Transactions",       f"{stats['total_transactions']:,}",
               help="Edge count |E|. Graph density ρ = |E|/(|V|·(|V|−1)). Directed edges only.")
-    st.metric("Suspicious Wallets", f"{len(fraud_df):,}",
+    st.metric("Anomalous Wallets", f"{len(fraud_df):,}",
               help="Flagged by Isolation Forest: s(x,n) = 2^(−E[h(x)]/c(n)). "
                    "fraud_label = −1 in source data.")
     if roc_auc_val is not None:
         st.metric("Model ROC-AUC",  f"{roc_auc_val:.4f}",
-                  help="AUC = ∫₀¹ TPR(t)dt. 1.0 = perfect separation of fraud vs clean in 64-dim space.")
+                  help="AUC = ∫₀¹ TPR(t)dt. Link-prediction metric: how well real transactions are ranked above random wallet pairs on held-out edges. 0.5 = random. It is not a fraud metric.")
 
     st.markdown("---")
 
@@ -229,7 +229,7 @@ if "🏠 Overview" in section:
             <div class="page-eyebrow">Enterprise Blockchain Intelligence Platform</div>
             <div class="hero-title">ChainIntel Pro</div>
             <div class="hero-sub">
-                Real-time fraud detection and transaction link prediction powered by
+                Wallet anomaly scoring and transaction link prediction powered by
                 Graph Neural Networks. Purpose-built for compliance teams, risk analysts,
                 and blockchain security professionals.
             </div>
@@ -244,7 +244,7 @@ if "🏠 Overview" in section:
                 </div>
                 <div class="hero-stat">
                     <div class="hero-stat-num">{len(fraud_df):,}</div>
-                    <div class="hero-stat-label">Suspicious Wallets</div>
+                    <div class="hero-stat-label">Anomalous Wallets</div>
                 </div>
                 <div class="hero-stat">
                     <div class="hero-stat-num">{f"{roc_auc_val:.3f}" if roc_auc_val else "N/A"}</div>
@@ -306,7 +306,7 @@ if "🏠 Overview" in section:
     vp1, vp2, vp3, vp4 = st.columns(4)
     value_props = [
         (vp1, "🛡️", p["danger"], "rgba(255,69,58,0.10)" if st.session_state.dark_mode else "rgba(255,59,48,0.08)",
-         "Fraud Detection", f"Score any wallet 0–100 with Isolation Forest. {len(fraud_df):,} suspicious wallets identified. Critical thresholds auto-flagged."),
+         "Anomaly Detection", f"Score any wallet 0–100 with Isolation Forest. {len(fraud_df):,} unusual wallets flagged. Unusual does not mean illicit."),
         (vp2, "🔮", p["primary"], "rgba(10,132,255,0.10)" if st.session_state.dark_mode else "rgba(0,122,255,0.07)",
          "Link Prediction", "Predict transaction probability between any two wallets using a multi-signal GraphSAGE decoder with 3 geometric similarity metrics."),
         (vp3, "🧬", p["accent"], "rgba(94,92,230,0.10)" if st.session_state.dark_mode else "rgba(88,86,214,0.07)",
@@ -331,7 +331,7 @@ if "🏠 Overview" in section:
         st.markdown(f'<h4 style="color:{p["text"]};font-weight:700;">What\'s inside</h4>', unsafe_allow_html=True)
         rows = [
             ("🔮", "Link Prediction", "Predict transaction probability between any two wallets using GraphSAGE decoder"),
-            ("🚨", "Fraud Detection", "Score wallets 0–100 using Isolation Forest on 64-dim GNN node embeddings"),
+            ("🚨", "Anomaly Detection", "Score wallets 0–100 using Isolation Forest on 64-dim GNN node embeddings"),
             ("🧬", "Embedding Space", "Explore all 25K wallets in 2D/3D PCA — find fraud clusters and outliers"),
             ("🏗️", "Architecture Viewer", "Interactive diagram of the full GraphSAGE pipeline with live decoder analysis"),
             ("🔌", "Live Explorer", "Query any Ethereum address — ETH balance, transactions, ERC-20 event logs"),
@@ -395,7 +395,7 @@ if "🏠 Overview" in section:
 - Optimiser: Adam, lr = 0.01, epochs = 100
 - Negative sampling: dynamic (random negatives)
 
-#### 4 · Fraud Detection
+#### 4 · Anomaly Detection
 - **Algorithm:** Isolation Forest (unsupervised)
 - **Input:** 64-dim GNN node embeddings
 - **Output:** anomaly score → normalised 0–100 risk scale
@@ -739,9 +739,9 @@ elif "🔮 Link Prediction" in section:
 # ═══════════════════════════════════════════════
 # FRAUD DETECTION
 # ═══════════════════════════════════════════════
-elif "🚨 Fraud Detection" in section:
-    st.markdown('<p class="main-header">🚨 Fraud Detection Dashboard</p>', unsafe_allow_html=True)
-    st.markdown('<p class="sub-header">Wallets scored 0–100 via Isolation Forest on 64-dim GNN embeddings · Higher = more suspicious</p>', unsafe_allow_html=True)
+elif "🚨 Anomaly Detection" in section:
+    st.markdown('<p class="main-header">🚨 Anomaly Detection Dashboard</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Wallets scored 0–100 via Isolation Forest on 64-dim GNN embeddings · Higher = more unusual</p>', unsafe_allow_html=True)
 
     st.markdown(f"""
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:0.8rem;">
@@ -892,7 +892,7 @@ elif "🚨 Fraud Detection" in section:
                                     key="inv_wallet_id",
                                     help=f"Default = wallet #{_top_fraud_id} (highest risk score in dataset)")
     with ic2:
-        if st.button("🚨 Top Suspicious", width='stretch'):
+        if st.button("🚨 Top Anomalous", width='stretch'):
             st.session_state["_inv_wallet"] = int(fraud_df.sort_values("risk_score", ascending=False).iloc[0]["wallet_id"])
             st.rerun()
     with ic3:
@@ -980,7 +980,7 @@ elif "🚨 Fraud Detection" in section:
                                    "More negative = shorter average isolation path = more anomalous. "
                                    f"Normalised to Risk Score via: ({fraud_df['fraud_score'].max():.5f} − raw) / "
                                    f"({fraud_df['fraud_score'].max():.5f} − {fraud_df['fraud_score'].min():.5f}) × 100")
-                    st.metric("Rank (most suspicious)", f"#{_rank} of {len(fraud_df):,}",
+                    st.metric("Rank (most anomalous)", f"#{_rank} of {len(fraud_df):,}",
                               help=f"{_rank - 1} wallets have a higher risk score than this one. "
                                    "Rank 1 = highest risk score in the entire flagged wallet set.")
                 else:
@@ -1164,8 +1164,7 @@ elif "📈 Model Performance" in section:
                delta="Perfect" if roc_auc_val and roc_auc_val >= 0.99 else None,
                delta_color="off",
                help="AUC = ∫₀¹ TPR(t) dt  —  Area Under the ROC Curve. "
-                    "1.0000 = the Isolation Forest score perfectly separates all fraudulent "
-                    "from clean wallet embeddings at every threshold. "
+                    "Link-prediction metric (real vs random wallet pairs), not a fraud metric. "
                     "0.5 = random classifier baseline. "
                     "Computed on all " + f"{embeddings.shape[0]:,} wallet embeddings.")
     hk2.metric("Best Loss",     f"{_best_loss:,.1f}",
@@ -1446,7 +1445,7 @@ where E[h(x)] = average path length across all trees, c(n) = expected path lengt
 """)
         st.markdown(f'<div class="formula-block">risk_score = (score_max − raw_score) / (score_max − score_min) × 100</div>', unsafe_allow_html=True)
         st.markdown(f"""
-This inverts the scale so higher risk_score = more suspicious (more anomalous).
+This inverts the scale so higher risk_score = more anomalous.
 
 **Thresholds used in this dashboard:**
 
@@ -1755,13 +1754,13 @@ elif "🌐 Network Visualization" in section:
                             "High exposure doesn't imply fraud but warrants investigation.")
 
     st.markdown("---")
-    st.markdown("### 🚨 Top Suspicious Networks")
+    st.markdown("### 🚨 Top Anomalous Networks")
     sp1, sp2, sp3 = st.columns([2, 1, 1])
     with sp1: top_n = st.selectbox("Show top N", [3, 5, 10], index=1)
     with sp2: susp_conn = st.slider("Max edges/graph", 10, 40, 15, key="sc")
     with sp3: susp_layout = st.selectbox("Layout", ["spring","kamada","circular"], key="sl")
 
-    if st.button("🔍 Render Suspicious Networks", width='stretch'):
+    if st.button("🔍 Render Anomalous Networks", width='stretch'):
         for _, row in fraud_df.sort_values("risk_score", ascending=False).head(top_n).iterrows():
             fw = int(row["wallet_id"])
             try:    lbl = f"{le.inverse_transform([fw])[0][:20]}… — {row['risk_level']} ({row['risk_score']:.1f}/100)"

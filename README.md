@@ -80,7 +80,7 @@ The sidebar has a light/dark theme toggle, dataset counters, connection status f
 | 1 | Overview | Headline metrics, connection status, a methodology expander |
 | 2 | Graph Analytics | Degree distributions, a power-law check, and a transaction explorer you can filter by numeric wallet ID |
 | 3 | Link Prediction | *Manual*: enter two addresses, get a probability and a decoder-signal breakdown. *Random*: 5–30 random pairs, exportable as CSV |
-| 4 | Fraud Detection | Risk table filtered by tier and minimum score. Per-wallet investigation with tabs for risk, transactions, network and embedding (8×8 heatmap, top-5 similar wallets) |
+| 4 | Anomaly Detection | Risk table filtered by tier and minimum score. Per-wallet investigation with tabs for risk, transactions, network and embedding (8×8 heatmap, top-5 similar wallets) |
 | 5 | Model Performance | Training-loss curve, ROC curve and an evaluation summary table |
 | 6 | Architecture & ML | Animated pipeline diagram. Tabs for layers, forward-pass maths, decoder (with a live two-wallet breakdown), Isolation Forest, and config |
 | 7 | Embedding Space | PCA scatter of 1,000–6,000 sampled wallets, with an optional highlighted wallet and K-nearest-neighbour search |
@@ -222,14 +222,14 @@ The intent is to reduce the dot product's bias toward high-magnitude (busy) wall
 
 The final run's printed loss swings between about 780 and 20,500 across epochs, so it does not decrease steadily. The ROC data behind the Model Performance screen is in `roc_data.npz`. Do not quote that AUC as a result. Node features are degrees computed over the **full** edge list, before the split, so held-out test edges leak into the features. Random negative pairs are mostly low-degree, so degree alone separates them from real edges. Recomputing features from training edges only is item A1 in the roadmap.
 
-**Leakage-free re-evaluation.** [`train_lp.py`](train_lp.py) splits the edges first, then builds node features and message-passing edges from the training edges only (same two-layer GraphSAGE, 64-d, Adam lr 0.01, 100 epochs, best validation epoch kept). It runs on the committed `ethereum_transactions.csv` (37,116 addresses, 39,680 unique directed edges), not on the older graph behind the shipped artifacts, and writes [`metrics.json`](metrics.json) without touching the dashboard files. Run `python train_lp.py` (needs only `torch`, `numpy`, `pandas`, `scikit-learn`).
+**Leakage-free re-evaluation.** [`train_lp.py`](train_lp.py) splits the edges first, then builds node features and message-passing edges from the training edges only (same two-layer GraphSAGE, 64-d, Adam lr 0.01, 100 epochs, best validation epoch kept). Message passing uses 80% of the training edges and the loss is computed on the other 20%, so no edge is both aggregated over and scored. It runs on the committed `ethereum_transactions.csv` (37,116 addresses, 39,680 unique directed edges), not on the older graph behind the shipped artifacts, and writes [`metrics.json`](metrics.json) without touching the dashboard files. Run `python train_lp.py` (needs only `torch`, `numpy`, `pandas`, `scikit-learn`).
 
 | Model (test edges, random negatives) | ROC-AUC |
 |---|---|
-| GraphSAGE, train-only features | 0.714 |
+| GraphSAGE, train-only features, supervision-only edges | 0.775 |
 | Baseline: log-degree sum from train edges (no learning) | 0.855 |
 
-Two things this shows. First, with leakage removed the GNN scores well above the notebook's 0.465, but a non-learned degree baseline still beats it, so the model is mostly recovering degree and the 2-feature input gives it little else to use. Second, validation AUC peaks in the first epochs and then falls to about 0.31 as training continues, because the training edges are used both for message passing and as supervision, so the model memorises them. Holding some training edges out as supervision-only edges, adding richer node features and using a temporal split are the next steps (roadmap A2 onward). The shipped dashboard artifacts have not been regenerated from this run.
+Two things this shows. First, with leakage removed the GNN scores well above the notebook's 0.465, but a non-learned degree baseline still beats it (0.855), so the model is mostly recovering degree and the 2-feature input gives it little else to use. Second, validation AUC peaks in the first epochs and then collapses (to about 0.29 by epoch 100) even with supervision-only edges, so training for a fixed 100 epochs is harmful here and the best-validation checkpoint is what is reported. The cause is not established; candidates are the dot-product decoder rewarding embedding magnitude and the uniform random negatives being mostly low-degree. Richer node features, hard negatives, a temporal split and ranking metrics are the next steps (roadmap A2 onward). The shipped dashboard artifacts have not been regenerated from this run.
 
 ## Design decisions
 
@@ -269,10 +269,9 @@ Two things this shows. First, with leakage removed the GNN scores well above the
 - **Anomalous does not mean criminal.** Exchange hot wallets, contract deployers and other high-volume addresses are structurally unusual too. No fraud flag has been validated against labelled data or public tag lists.
 - **The edge split is random, not temporal.** The model answers "is this edge plausible", not "will this edge happen next".
 - **It is a snapshot.** Any address outside the 25,542 training wallets has no embedding. The Live Explorer shows chain data for it but cannot score it.
-- **Some app text overstates the model.** The in-app methodology mentions per-layer L2 normalisation, which the notebook does not apply. The sidebar describes the ROC-AUC as separating "fraud vs clean", but it is a link-prediction metric.
+- **Some app text overstates the model.** The in-app methodology mentions per-layer L2 normalisation, which the notebook does not apply. The ROC-AUC help text and the "Fraud Detection" page have been reworded to say link prediction and anomaly detection; the output files keep the older `fraudulent_wallets.csv` name.
 - **`generate_sample_data.py` creates random data.** Running it overwrites the real artifacts in the working directory with synthetic embeddings and edges.
-- **`app_fixed.py` is an older, separate copy of the dashboard** (1,896 lines, different page title). The devcontainer still launches it. `app.py` is the maintained entry point.
-- **Unpinned dependencies.** `requirements.txt` has no versions. `FIXES.md` records one Streamlit API change (`use_container_width` → `width`) that already broke the app.
+- **Dependencies have minimum versions only**, not exact pins. `FIXES.md` records one Streamlit API change (`use_container_width` → `width`) that already broke the app, hence `streamlit>=1.50`.
 
 ## Compared with rule-based screening
 
@@ -303,7 +302,6 @@ In practice the two complement each other. Rules handle known-bad addresses, and
 
 ```
 ├── app.py                     # Streamlit dashboard, 9 screens (entry point)
-├── app_fixed.py               # older standalone dashboard copy (legacy)
 ├── utils/
 │   ├── ml_utils.py            # decoder, PCA, cosine top-k, risk scoring, graph stats
 │   ├── blockchain.py          # Etherscan v2 + Web3.py helpers, known-protocol table
@@ -390,7 +388,7 @@ The full prioritised plan is in [docs/ROADMAP.md](docs/ROADMAP.md). The P0 items
 - **Re-report metrics on the leakage-free split** (A1 done in `train_lp.py`; A2: regenerate the dashboard artifacts from it).
 - **Normalise node features** to stabilise training (A4).
 - **Reconcile the training and serving decoders** (A3).
-- **Retire `app_fixed.py`**, untrack tooling leftovers, and pin dependency versions (D1–D3).
+- **Done:** `app_fixed.py` removed, devcontainer points at `app.py`, dependency floors set. Left: untrack tooling leftovers (D2).
 - **Rotate any previously exposed API keys** (E1, E2).
 
 After that: richer node features, a temporal split, a larger graph, ranking metrics (Hits@K, MRR), explanations for each flag, tests and CI.
