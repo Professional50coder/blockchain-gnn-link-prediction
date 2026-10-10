@@ -5,8 +5,11 @@ alone separated real edges from random negatives. This script splits first, buil
 message-passing edges from TRAIN edges only (with a supervision-only slice), and reports validation/test ROC-AUC next to two
 non-learned baselines. It writes metrics.json and never touches the dashboard artifacts.
 
-    python train_lp.py            # uses ethereum_transactions.csv
+    python train_lp.py                    # random edge split -> metrics.json
+    python train_lp.py --split temporal   # oldest 70% train / next 15% val / newest 15% test
+                                          #   -> metrics_temporal.json
 """
+import argparse
 import json
 import numpy as np
 import pandas as pd
@@ -14,6 +17,9 @@ import torch
 import torch.nn.functional as F
 from sklearn.metrics import roc_auc_score
 
+ap = argparse.ArgumentParser()
+ap.add_argument("--split", choices=["random", "temporal"], default="random")
+SPLIT = ap.parse_args().split
 SEED, HIDDEN, EPOCHS, LR = 42, 64, 100, 0.01
 rng = np.random.default_rng(SEED)
 torch.manual_seed(SEED)
@@ -24,13 +30,22 @@ df = df[df["from_address"] != df["to_address"]]
 codes, uniq = pd.factorize(pd.concat([df["from_address"], df["to_address"]]))
 n = len(uniq)
 src, dst = codes[: len(df)], codes[len(df):]
-edges = np.unique(np.stack([src, dst], 1), axis=0)
+pairs = np.stack([src, dst], 1)
+edges = np.unique(pairs, axis=0)
+if SPLIT == "temporal":
+    ts = pd.to_datetime(df["block_timestamp"], utc=True, errors="coerce").astype("int64").to_numpy()
+    # first time each unique edge was seen; order edges oldest -> newest
+    first_seen = pd.Series(ts).groupby([src, dst]).min().reindex(list(map(tuple, edges.tolist()))).to_numpy()
+    edges = edges[np.argsort(first_seen, kind="stable")]
 print(f"nodes={n:,} unique directed edges={len(edges):,}")
 
 # --- split FIRST (70/15/15), everything below sees train edges only
-perm = rng.permutation(len(edges))
 n_val = n_test = int(0.15 * len(edges))
-val_e, test_e, train_e = edges[perm[:n_val]], edges[perm[n_val:n_val + n_test]], edges[perm[n_val + n_test:]]
+if SPLIT == "random":
+    perm = rng.permutation(len(edges))
+    val_e, test_e, train_e = edges[perm[:n_val]], edges[perm[n_val:n_val + n_test]], edges[perm[n_val + n_test:]]
+else:  # edges are ordered oldest -> newest: train = oldest, test = newest
+    train_e, val_e, test_e = edges[: -(n_val + n_test)], edges[-(n_val + n_test): -n_test], edges[-n_test:]
 existing = set(map(tuple, edges.tolist()))
 
 def sample_neg(k):
@@ -106,7 +121,8 @@ res = {
     "graphsage_test_auc": round(auc(z, test_e, test_neg), 4),
     "baseline_degree_product_test_auc": round(roc_auc_score(lab, np.r_[pa(test_e), pa(test_neg)]), 4),
     "loss_first_last": [round(hist[0], 4), round(hist[-1], 4)],
-    "note": "features from train edges; message passing on 80% of train edges, loss on the other 20%; random edge split; random negatives",
+    "split": SPLIT,
+    "note": f"features from train edges; message passing on 80% of train edges, loss on the other 20%; {SPLIT} edge split; random negatives",
 }
 print(json.dumps(res, indent=2))
-json.dump(res, open("metrics.json", "w"), indent=2)
+json.dump(res, open("metrics.json" if SPLIT == "random" else "metrics_temporal.json", "w"), indent=2)

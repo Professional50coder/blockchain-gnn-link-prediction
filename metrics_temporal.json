@@ -1,0 +1,18 @@
+{
+  "nodes": 37116,
+  "unique_edges": 39680,
+  "train/val/test": [
+    27776,
+    5952,
+    5952
+  ],
+  "graphsage_val_auc": 0.7618,
+  "graphsage_test_auc": 0.7571,
+  "baseline_degree_product_test_auc": 0.6903,
+  "loss_first_last": [
+    7.6605,
+    0.4007
+  ],
+  "split": "temporal",
+  "note": "features from train edges; message passing on 80% of train edges, loss on the other 20%; temporal edge split; random negatives"
+}

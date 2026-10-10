@@ -13,5 +13,6 @@
     10.4773,
     0.4073
   ],
+  "split": "random",
   "note": "features from train edges; message passing on 80% of train edges, loss on the other 20%; random edge split; random negatives"
 }
