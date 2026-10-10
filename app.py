@@ -178,8 +178,8 @@ with st.sidebar:
               help="Flagged by Isolation Forest: s(x,n) = 2^(−E[h(x)]/c(n)). "
                    "fraud_label = −1 in source data.")
     if roc_auc_val is not None:
-        st.metric("Model ROC-AUC",  f"{roc_auc_val:.4f}",
-                  help="AUC = ∫₀¹ TPR(t)dt. Link-prediction metric: how well real transactions are ranked above random wallet pairs on held-out edges. 0.5 = random. It is not a fraud metric.")
+        st.metric("Saved-run ROC-AUC (inflated)",  f"{roc_auc_val:.4f}",
+                  help="AUC = ∫₀¹ TPR(t)dt. Link-prediction metric: how well real transactions are ranked above random wallet pairs on held-out edges. 0.5 = random. It is not a fraud metric. This saved value comes from a run whose degree features were computed before the split, so it is inflated; see the README for leakage-free results.")
 
     st.markdown("---")
 
@@ -248,7 +248,7 @@ if "🏠 Overview" in section:
                 </div>
                 <div class="hero-stat">
                     <div class="hero-stat-num">{f"{roc_auc_val:.3f}" if roc_auc_val else "N/A"}</div>
-                    <div class="hero-stat-label">Model ROC-AUC</div>
+                    <div class="hero-stat-label">Saved-run ROC-AUC (inflated by leakage)</div>
                 </div>
             </div>
         </div>
@@ -1161,7 +1161,7 @@ elif "📈 Model Performance" in section:
 
     hk1, hk2, hk3, hk4, hk5 = st.columns(5)
     hk1.metric("ROC-AUC",       f"{roc_auc_val:.4f}" if roc_auc_val else "N/A",
-               delta="Perfect" if roc_auc_val and roc_auc_val >= 0.99 else None,
+               delta="Inflated: feature leakage" if roc_auc_val and roc_auc_val >= 0.99 else None,
                delta_color="off",
                help="AUC = ∫₀¹ TPR(t) dt  —  Area Under the ROC Curve. "
                     "Link-prediction metric (real vs random wallet pairs), not a fraud metric. "
