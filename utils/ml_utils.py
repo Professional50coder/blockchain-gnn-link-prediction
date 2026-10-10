@@ -77,7 +77,7 @@ def find_top_k_similar(
     cosines = sample_embs @ t_norm / s_norms.squeeze()
     if exclude_id >= 0:
         mask = sample_ids != exclude_id
-        cosines = cosines * mask
+        cosines = np.where(mask, cosines, -np.inf)
     top_local = np.argsort(cosines)[::-1][:k]
     return sample_ids[top_local], cosines[top_local]
 
