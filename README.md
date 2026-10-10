@@ -1,23 +1,70 @@
 # ChainIntel Pro
 
-**Link prediction and unsupervised anomaly scoring over an Ethereum transaction graph, using GraphSAGE embeddings served from a CPU-only Streamlit dashboard.**
+**GraphSAGE link prediction and unsupervised anomaly scoring on an Ethereum transaction graph, with a CPU-only Streamlit dashboard.** 🔗
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Professional50coder/blockchain-gnn-link-prediction)
+[![CI](https://github.com/Professional50coder/blockchain-gnn-link-prediction/actions/workflows/ci.yml/badge.svg)](https://github.com/Professional50coder/blockchain-gnn-link-prediction/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Streamlit](https://img.shields.io/badge/streamlit-dashboard-FF4B4B)
-![License](https://img.shields.io/badge/license-educational-lightgrey)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Professional50coder/blockchain-gnn-link-prediction)
 
-| | |
+**Live app:** https://blockchain-gnn-link-prediction.streamlit.app/
+
+## Results at a glance 📊
+
+All numbers below were produced by `python train_lp.py [--split temporal]` on the committed `ethereum_transactions.csv` (37,116 addresses, 39,680 unique directed edges; transfers dated 2023-08-15 to 2026-02-09). Splits are 70/15/15 over unique edges, node features and message-passing edges come from training edges only, and negatives are uniformly random non-edges (one per positive). Raw output is in [`metrics.json`](metrics.json) and [`metrics_temporal.json`](metrics_temporal.json). Seeds are fixed, so re-running gives the same numbers.
+
+| Test ROC-AUC | Random edge split | Temporal split (train on oldest 70%, test on newest 15%) |
+|---|:-:|:-:|
+| Degree baseline (log out-degree of sender + log in-degree of receiver, from train edges, no learning) | **0.855** | 0.690 |
+| GraphSAGE (2 layers, 64-d, degree features, best-validation epoch) | 0.775 | **0.757** |
+
+How to read this honestly:
+
+- Under a random split a non-learned degree baseline beats the GNN. Under the temporal split, where the model must score edges that first appear later in time, the GNN wins (0.757 vs 0.690).
+- The GNN's validation AUC peaks early and then collapses below 0.5 during the 100 epochs (to about 0.29 random, 0.25 temporal), so the best-validation checkpoint is what is reported. The cause is not established.
+- These are plausibility scores against random negatives, from a single seed, with no confidence intervals.
+- The embeddings shipped with the dashboard come from an older, smaller graph (25,542 nodes, 29,023 edges) and were **not** retrained with this protocol. Their saved ROC-AUC (1.0) is inflated by feature leakage and is labelled as such in the app. See [Limits](#limits).
+- There are no ground-truth fraud labels in this repository, so there is **no fraud-detection accuracy to report**. The 507 flagged wallets are Isolation Forest outliers (contamination fixed at 2%), not confirmed illicit addresses.
+
+## Worked example 🔍
+
+Using the committed artifacts (`node_embeddings.npy`, `fraudulent_wallets.csv`):
+
+```python
+import numpy as np, pandas as pd
+from utils.ml_utils import compute_link_probability, find_top_k_similar
+
+emb = np.load("node_embeddings.npy")                  # (25542, 64)
+f = pd.read_csv("fraudulent_wallets.csv")
+w = f.sort_values("fraud_score").iloc[0]              # most anomalous wallet
+print(w.wallet_address, round(w.fraud_score, 4))      # 0xfebb4a57...6dee86dad  -0.0785
+ids, cos = find_top_k_similar(emb[w.wallet_id], emb, k=5, exclude_id=w.wallet_id)
+# ids -> [23582 24414 21346 24474 25011], cosine ~1.0 (nearest within a 3,000-wallet sample)
+```
+
+A caveat measured on the same files: the dashboard's served link probability saturates. Over 2,000 real edges and 2,000 random wallet pairs, 68.6% of real edges and 62.2% of random pairs score above 0.99 (ROC-AUC 0.60, and the real edges are training edges, so even that is optimistic). Treat the dashboard's link probabilities as a ranking aid inside the demo, not a calibrated output.
+
+## Quickstart ⚡
+
+```bash
+git clone https://github.com/Professional50coder/blockchain-gnn-link-prediction.git
+cd blockchain-gnn-link-prediction
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app.py                                # dashboard at http://localhost:8501
+```
+
+| I want to | Command |
 |---|---|
-| **Live app** | https://blockchain-gnn-link-prediction.streamlit.app/ |
-| **Source** | https://github.com/Professional50coder/blockchain-gnn-link-prediction |
-| **Code Q&A** | https://deepwiki.com/Professional50coder/blockchain-gnn-link-prediction |
+| Run the tests (18) | `pip install -r requirements-dev.txt && python -m pytest -q` |
+| Reproduce the table above | `pip install torch scikit-learn pandas numpy && python train_lp.py && python train_lp.py --split temporal` (CPU, a few minutes) |
+| Run in Docker | `docker build -t chainintel . && docker run -p 8501:8501 chainintel` (written but not built or run by the author yet) |
 
-**At a glance**
+**What it is, in three bullets**
 
-- A two-layer GraphSAGE encoder turns each of **25,542 wallets** in a **29,023-edge** transaction graph into a 64-dimensional embedding.
-- The same embedding table answers two questions: *how likely are these two wallets to transact?* (link prediction) and *which wallets look structurally unlike the rest?* (Isolation Forest, **507 wallets flagged**).
-- Training happens offline in a notebook. The dashboard loads six saved files and never imports PyTorch, so it runs on a free CPU host.
+- A two-layer GraphSAGE encoder turns each wallet in a transaction graph into a 64-dimensional embedding.
+- The embeddings answer two questions: *how plausible is a transfer between these two wallets?* (link prediction) and *which wallets look structurally unlike the rest?* (Isolation Forest, 507 of 25,542 wallets flagged in the shipped artifacts).
+- Training happens offline. The dashboard loads six saved files and never imports PyTorch, so it runs on a free CPU host.
 
 ## Contents
 
@@ -228,8 +275,9 @@ The final run's printed loss swings between about 780 and 20,500 across epochs, 
 |---|---|
 | GraphSAGE, train-only features, supervision-only edges | 0.775 |
 | Baseline: log-degree sum from train edges (no learning) | 0.855 |
+| Same two rows on a temporal split (`--split temporal`): GraphSAGE / baseline | 0.757 / 0.690 |
 
-Two things this shows. First, with leakage removed the GNN scores well above the notebook's 0.465, but a non-learned degree baseline still beats it (0.855), so the model is mostly recovering degree and the 2-feature input gives it little else to use. Second, validation AUC peaks in the first epochs and then collapses (to about 0.29 by epoch 100) even with supervision-only edges, so training for a fixed 100 epochs is harmful here and the best-validation checkpoint is what is reported. The cause is not established; candidates are the dot-product decoder rewarding embedding magnitude and the uniform random negatives being mostly low-degree. Richer node features, hard negatives, a temporal split and ranking metrics are the next steps (roadmap A2 onward). The shipped dashboard artifacts have not been regenerated from this run.
+Two things this shows. First, with leakage removed the GNN scores well above the notebook's 0.465, but a non-learned degree baseline still beats it (0.855), so the model is mostly recovering degree and the 2-feature input gives it little else to use. Second, validation AUC peaks in the first epochs and then collapses (to about 0.29 by epoch 100) even with supervision-only edges, so training for a fixed 100 epochs is harmful here and the best-validation checkpoint is what is reported. The cause is not established; candidates are the dot-product decoder rewarding embedding magnitude and the uniform random negatives being mostly low-degree. Richer node features, hard negatives and ranking metrics are the next steps (roadmap A2 onward). The shipped dashboard artifacts have not been regenerated from this run.
 
 ## Design decisions
 
@@ -308,6 +356,11 @@ In practice the two complement each other. Rules handle known-bad addresses, and
 │   ├── viz.py                 # Plotly / NetworkX figures
 │   └── theme.py               # palettes + CSS injection
 ├── Link_Prediction.ipynb      # training notebook (PyTorch Geometric)
+├── train_lp.py                # leakage-free evaluation (random / temporal split)
+├── metrics.json, metrics_temporal.json   # its reproducible output
+├── tests/                     # pytest suite (utils + artifact consistency)
+├── .github/workflows/ci.yml   # tests on every push / PR
+├── Dockerfile                 # dashboard image (not yet built)
 ├── save_dashboard_data.py     # exports the six artifacts from a notebook session
 ├── generate_sample_data.py    # random placeholder artifacts (testing only)
 │
@@ -369,7 +422,12 @@ Open `Link_Prediction.ipynb` in Colab and run it end to end, then run `save_dash
 
 ## Testing
 
-There is no automated test suite. Verification today is manual: launch the app and go through each screen. [`FIXES.md`](FIXES.md) lists known runtime issues and their fixes. Unit tests for `utils/ml_utils.py` (pure functions), the Etherscan response parsing and artifact loading, plus CI, are planned (roadmap items D5 and D6).
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+python -m pytest -q        # 18 tests
+```
+
+`tests/test_ml_utils.py` covers risk tiers and score normalisation, link-probability bounds, symmetry and overflow safety, PCA determinism, nearest-neighbour exclusion and graph statistics. `tests/test_artifacts.py` checks that the committed artifacts agree with each other (embedding rows, encoder classes, edge IDs, flagged wallets). GitHub Actions runs the suite on Python 3.11 and 3.12 ([`ci.yml`](.github/workflows/ci.yml)). The Streamlit screens and the Etherscan/Web3 client are not covered by automated tests; [`FIXES.md`](FIXES.md) lists past runtime issues.
 
 ## Deploying
 
@@ -389,7 +447,7 @@ The full prioritised plan is in [docs/ROADMAP.md](docs/ROADMAP.md). The P0 items
 - **Normalise node features** to stabilise training (A4).
 - **Reconcile the training and serving decoders** (A3).
 - **Done:** `app_fixed.py` removed, devcontainer points at `app.py`, dependency floors set. Left: untrack tooling leftovers (D2).
-- **Rotate any previously exposed API keys** (E1, E2).
+- **Rotate any previously exposed API keys** (E1, E2) and purge them from git history: a key-like string from an earlier README is still present in old commits even though the current tree is clean.
 
 After that: richer node features, a temporal split, a larger graph, ranking metrics (Hits@K, MRR), explanations for each flag, tests and CI.
 
@@ -401,4 +459,4 @@ After that: richer node features, a temporal split, a larger graph, ranking metr
 
 ## License
 
-Educational and research use.
+No license file is committed, so default copyright applies until the owner adds one.
